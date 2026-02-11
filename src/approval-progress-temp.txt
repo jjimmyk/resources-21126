@@ -1,0 +1,595 @@
+                        {/* Approval Progress - Top Level (Single for all resources) */}
+                        {resource.resourceRequests.length > 0 && resource.resourceRequests[0].approvalSteps && (
+                          <div className="bg-card border border-border p-4 mb-4" style={{ borderRadius: 'var(--radius)' }}>
+                            <div 
+                              className="text-foreground mb-4" 
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              Approval Progress
+                            </div>
+                            <div className="flex items-start gap-2">
+                              {/* Step 1: Request Resource */}
+                              <div className="flex-1">
+                                <div className="flex flex-col items-center gap-2">
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                                      resource.resourceRequests[0].approvalSteps.requestResource.status === 'completed'
+                                        ? 'bg-status-success border-status-success'
+                                        : resource.resourceRequests[0].approvalSteps.requestResource.status === 'rejected'
+                                        ? 'bg-status-error border-status-error'
+                                        : resource.resourceRequests[0].currentApprovalStep === 'requestResource'
+                                        ? 'bg-status-warning border-status-warning'
+                                        : 'bg-card border-border'
+                                    }`}
+                                  >
+                                    {resource.resourceRequests[0].approvalSteps.requestResource.status === 'completed' ? (
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                        <polyline points="20 6 9 17 4 12" />
+                                      </svg>
+                                    ) : (
+                                      <span 
+                                        className={resource.resourceRequests[0].currentApprovalStep === 'requestResource' ? 'text-background' : 'text-muted-foreground'} 
+                                        style={{ fontSize: 'var(--text-xs)' }}
+                                      >
+                                        1
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div 
+                                    className="text-center text-card-foreground" 
+                                    style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}
+                                  >
+                                    Request Resource
+                                  </div>
+                                  {resource.resourceRequests[0].approvalSteps.requestResource.status === 'completed' && (
+                                    <div className="text-center text-muted-foreground caption" style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}>
+                                      {resource.resourceRequests[0].approvalSteps.requestResource.approver}
+                                    </div>
+                                  )}
+                                  {/* Review button for Step 1 */}
+                                  {resource.resourceRequests[0].status === 'pending-approval' && resource.resourceRequests[0].currentApprovalStep === 'requestResource' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: '',
+                                            approverPosition: '',
+                                            currentStep: 'requestResource',
+                                            stepLabel: 'Request Resource'
+                                          });
+                                          setApproverName('');
+                                          setApproverPosition('');
+                                          setApprovalComments('');
+                                          setIsViewMode(false);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        Review Approval
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {/* View button for Step 1 after approval */}
+                                  {resource.resourceRequests[0].approvalSteps.requestResource.status === 'completed' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: resource.resourceRequests[0].approvalSteps.requestResource.approver || '',
+                                            approverPosition: '',
+                                            currentStep: 'requestResource',
+                                            stepLabel: 'Request Resource',
+                                            approvalTimestamp: resource.resourceRequests[0].approvalSteps.requestResource.timestamp
+                                          });
+                                          setApproverName(resource.resourceRequests[0].approvalSteps.requestResource.approver || '');
+                                          setApproverPosition('');
+                                          setApprovalComments(resource.resourceRequests[0].approvalSteps.requestResource.comments || '');
+                                          setIsViewMode(true);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="border-border text-foreground hover:bg-muted h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        View
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Connector Line */}
+                              <div className="flex-1 pt-4">
+                                <div 
+                                  className={`h-0.5 ${
+                                    resource.resourceRequests[0].approvalSteps.sectionChief.status === 'completed'
+                                      ? 'bg-status-success'
+                                      : 'bg-border'
+                                  }`}
+                                />
+                              </div>
+
+                              {/* Step 2: Section Chief */}
+                              <div className="flex-1">
+                                <div className="flex flex-col items-center gap-2">
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                                      resource.resourceRequests[0].approvalSteps.sectionChief.status === 'completed'
+                                        ? 'bg-status-success border-status-success'
+                                        : resource.resourceRequests[0].approvalSteps.sectionChief.status === 'rejected'
+                                        ? 'bg-status-error border-status-error'
+                                        : resource.resourceRequests[0].currentApprovalStep === 'sectionChief'
+                                        ? 'bg-status-warning border-status-warning'
+                                        : 'bg-card border-border'
+                                    }`}
+                                  >
+                                    {resource.resourceRequests[0].approvalSteps.sectionChief.status === 'completed' ? (
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                        <polyline points="20 6 9 17 4 12" />
+                                      </svg>
+                                    ) : (
+                                      <span 
+                                        className={resource.resourceRequests[0].currentApprovalStep === 'sectionChief' ? 'text-background' : 'text-muted-foreground'} 
+                                        style={{ fontSize: 'var(--text-xs)' }}
+                                      >
+                                        2
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div 
+                                    className="text-center text-card-foreground" 
+                                    style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}
+                                  >
+                                    Section Chief
+                                  </div>
+                                  {resource.resourceRequests[0].approvalSteps.sectionChief.status === 'completed' && (
+                                    <div className="text-center text-muted-foreground caption" style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}>
+                                      {resource.resourceRequests[0].approvalSteps.sectionChief.approver}
+                                    </div>
+                                  )}
+                                  {/* Review button for Step 2 */}
+                                  {resource.resourceRequests[0].status === 'pending-approval' && resource.resourceRequests[0].currentApprovalStep === 'sectionChief' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: '',
+                                            approverPosition: '',
+                                            currentStep: 'sectionChief',
+                                            stepLabel: 'Section Chief'
+                                          });
+                                          setApproverName('');
+                                          setApproverPosition('');
+                                          setApprovalComments('');
+                                          setIsViewMode(false);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        Review Approval
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {/* View button for Step 2 after approval */}
+                                  {resource.resourceRequests[0].approvalSteps.sectionChief.status === 'completed' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: resource.resourceRequests[0].approvalSteps.sectionChief.approver || '',
+                                            approverPosition: '',
+                                            currentStep: 'sectionChief',
+                                            stepLabel: 'Section Chief',
+                                            approvalTimestamp: resource.resourceRequests[0].approvalSteps.sectionChief.timestamp
+                                          });
+                                          setApproverName(resource.resourceRequests[0].approvalSteps.sectionChief.approver || '');
+                                          setApproverPosition('');
+                                          setApprovalComments(resource.resourceRequests[0].approvalSteps.sectionChief.comments || '');
+                                          setIsViewMode(true);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="border-border text-foreground hover:bg-muted h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        View
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Connector Line */}
+                              <div className="flex-1 pt-4">
+                                <div 
+                                  className={`h-0.5 ${
+                                    resource.resourceRequests[0].approvalSteps.reslReview.status === 'completed'
+                                      ? 'bg-status-success'
+                                      : 'bg-border'
+                                  }`}
+                                />
+                              </div>
+
+                              {/* Step 3: RESL Review */}
+                              <div className="flex-1">
+                                <div className="flex flex-col items-center gap-2">
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                                      resource.resourceRequests[0].approvalSteps.reslReview.status === 'completed'
+                                        ? 'bg-status-success border-status-success'
+                                        : resource.resourceRequests[0].approvalSteps.reslReview.status === 'rejected'
+                                        ? 'bg-status-error border-status-error'
+                                        : resource.resourceRequests[0].currentApprovalStep === 'reslReview'
+                                        ? 'bg-status-warning border-status-warning'
+                                        : 'bg-card border-border'
+                                    }`}
+                                  >
+                                    {resource.resourceRequests[0].approvalSteps.reslReview.status === 'completed' ? (
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                        <polyline points="20 6 9 17 4 12" />
+                                      </svg>
+                                    ) : (
+                                      <span 
+                                        className={resource.resourceRequests[0].currentApprovalStep === 'reslReview' ? 'text-background' : 'text-muted-foreground'} 
+                                        style={{ fontSize: 'var(--text-xs)' }}
+                                      >
+                                        3
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div 
+                                    className="text-center text-card-foreground" 
+                                    style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}
+                                  >
+                                    RESL Review
+                                  </div>
+                                  {resource.resourceRequests[0].approvalSteps.reslReview.status === 'completed' && (
+                                    <div className="text-center text-muted-foreground caption" style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}>
+                                      {resource.resourceRequests[0].approvalSteps.reslReview.approver}
+                                    </div>
+                                  )}
+                                  {/* Review button for Step 3 */}
+                                  {resource.resourceRequests[0].status === 'pending-approval' && resource.resourceRequests[0].currentApprovalStep === 'reslReview' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: '',
+                                            approverPosition: '',
+                                            currentStep: 'reslReview',
+                                            stepLabel: 'RESL Review'
+                                          });
+                                          setApproverName('');
+                                          setApproverPosition('');
+                                          setApprovalComments('');
+                                          setReslTactical(false);
+                                          setReslPersonnel(false);
+                                          setReslResourceStatus('available');
+                                          setIsViewMode(false);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        Review Approval
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {/* View button for Step 3 after approval */}
+                                  {resource.resourceRequests[0].approvalSteps.reslReview.status === 'completed' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: resource.resourceRequests[0].approvalSteps.reslReview.approver || '',
+                                            approverPosition: '',
+                                            currentStep: 'reslReview',
+                                            stepLabel: 'RESL Review',
+                                            approvalTimestamp: resource.resourceRequests[0].approvalSteps.reslReview.timestamp
+                                          });
+                                          setApproverName(resource.resourceRequests[0].approvalSteps.reslReview.approver || '');
+                                          setApproverPosition('');
+                                          setApprovalComments(resource.resourceRequests[0].approvalSteps.reslReview.comments || '');
+                                          if (resource.resourceRequests[0].approvalSteps.reslReview.data) {
+                                            setReslTactical(resource.resourceRequests[0].approvalSteps.reslReview.data.tactical || false);
+                                            setReslPersonnel(resource.resourceRequests[0].approvalSteps.reslReview.data.personnel || false);
+                                            setReslResourceStatus(resource.resourceRequests[0].approvalSteps.reslReview.data.resourceStatus || 'available');
+                                          }
+                                          setIsViewMode(true);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="border-border text-foreground hover:bg-muted h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        View
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Connector Line */}
+                              <div className="flex-1 pt-4">
+                                <div 
+                                  className={`h-0.5 ${
+                                    resource.resourceRequests[0].approvalSteps.logistics.status === 'completed'
+                                      ? 'bg-status-success'
+                                      : 'bg-border'
+                                  }`}
+                                />
+                              </div>
+
+                              {/* Step 4: Logistics */}
+                              <div className="flex-1">
+                                <div className="flex flex-col items-center gap-2">
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                                      resource.resourceRequests[0].approvalSteps.logistics.status === 'completed'
+                                        ? 'bg-status-success border-status-success'
+                                        : resource.resourceRequests[0].approvalSteps.logistics.status === 'rejected'
+                                        ? 'bg-status-error border-status-error'
+                                        : resource.resourceRequests[0].currentApprovalStep === 'logistics'
+                                        ? 'bg-status-warning border-status-warning'
+                                        : 'bg-card border-border'
+                                    }`}
+                                  >
+                                    {resource.resourceRequests[0].approvalSteps.logistics.status === 'completed' ? (
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                        <polyline points="20 6 9 17 4 12" />
+                                      </svg>
+                                    ) : (
+                                      <span 
+                                        className={resource.resourceRequests[0].currentApprovalStep === 'logistics' ? 'text-background' : 'text-muted-foreground'} 
+                                        style={{ fontSize: 'var(--text-xs)' }}
+                                      >
+                                        4
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div 
+                                    className="text-center text-card-foreground" 
+                                    style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}
+                                  >
+                                    Logistics
+                                  </div>
+                                  {resource.resourceRequests[0].approvalSteps.logistics.status === 'completed' && (
+                                    <div className="text-center text-muted-foreground caption" style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}>
+                                      {resource.resourceRequests[0].approvalSteps.logistics.approver}
+                                    </div>
+                                  )}
+                                  {/* Review button for Step 4 */}
+                                  {resource.resourceRequests[0].status === 'pending-approval' && resource.resourceRequests[0].currentApprovalStep === 'logistics' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: '',
+                                            approverPosition: '',
+                                            currentStep: 'logistics',
+                                            stepLabel: 'Logistics'
+                                          });
+                                          setApproverName('');
+                                          setApproverPosition('');
+                                          setApprovalComments('');
+                                          setLogisticsOrderNumber('');
+                                          setLogisticsEtaDate('');
+                                          setLogisticsEtaTime('');
+                                          setLogisticsCost('');
+                                          setLogisticsSupplierName('');
+                                          setLogisticsPhone('');
+                                          setLogisticsEmail('');
+                                          setLogisticsUseCustomSource(false);
+                                          setLogisticsSourceLocation('');
+                                          setLogisticsOrderPlacedBy('');
+                                          setLogisticsOrderPlacedByOther('');
+                                          setLogisticsNotes('');
+                                          setIsViewMode(false);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        Review Approval
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {/* View button for Step 4 after approval */}
+                                  {resource.resourceRequests[0].approvalSteps.logistics.status === 'completed' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: resource.resourceRequests[0].approvalSteps.logistics.approver || '',
+                                            approverPosition: '',
+                                            currentStep: 'logistics',
+                                            stepLabel: 'Logistics',
+                                            approvalTimestamp: resource.resourceRequests[0].approvalSteps.logistics.timestamp
+                                          });
+                                          setApproverName(resource.resourceRequests[0].approvalSteps.logistics.approver || '');
+                                          setApproverPosition('');
+                                          setApprovalComments(resource.resourceRequests[0].approvalSteps.logistics.comments || '');
+                                          if (resource.resourceRequests[0].approvalSteps.logistics.data) {
+                                            setLogisticsOrderNumber(resource.resourceRequests[0].approvalSteps.logistics.data.orderNumber || '');
+                                            setLogisticsEtaDate(resource.resourceRequests[0].approvalSteps.logistics.data.etaDate || '');
+                                            setLogisticsEtaTime(resource.resourceRequests[0].approvalSteps.logistics.data.etaTime || '');
+                                            setLogisticsCost(resource.resourceRequests[0].approvalSteps.logistics.data.cost || '');
+                                            setLogisticsSupplierName(resource.resourceRequests[0].approvalSteps.logistics.data.supplierName || '');
+                                            setLogisticsPhone(resource.resourceRequests[0].approvalSteps.logistics.data.phone || '');
+                                            setLogisticsEmail(resource.resourceRequests[0].approvalSteps.logistics.data.email || '');
+                                            setLogisticsUseCustomSource(resource.resourceRequests[0].approvalSteps.logistics.data.useCustomSource || false);
+                                            setLogisticsSourceLocation(resource.resourceRequests[0].approvalSteps.logistics.data.sourceLocation || '');
+                                            setLogisticsOrderPlacedBy(resource.resourceRequests[0].approvalSteps.logistics.data.orderPlacedBy || '');
+                                            setLogisticsOrderPlacedByOther(resource.resourceRequests[0].approvalSteps.logistics.data.orderPlacedByOther || '');
+                                            setLogisticsNotes(resource.resourceRequests[0].approvalSteps.logistics.data.notes || '');
+                                          }
+                                          setIsViewMode(true);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="border-border text-foreground hover:bg-muted h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        View
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Connector Line */}
+                              <div className="flex-1 pt-4">
+                                <div 
+                                  className={`h-0.5 ${
+                                    resource.resourceRequests[0].approvalSteps.finance.status === 'completed'
+                                      ? 'bg-status-success'
+                                      : 'bg-border'
+                                  }`}
+                                />
+                              </div>
+
+                              {/* Step 5: Finance */}
+                              <div className="flex-1">
+                                <div className="flex flex-col items-center gap-2">
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                                      resource.resourceRequests[0].approvalSteps.finance.status === 'completed'
+                                        ? 'bg-status-success border-status-success'
+                                        : resource.resourceRequests[0].approvalSteps.finance.status === 'rejected'
+                                        ? 'bg-status-error border-status-error'
+                                        : resource.resourceRequests[0].currentApprovalStep === 'finance'
+                                        ? 'bg-status-warning border-status-warning'
+                                        : 'bg-card border-border'
+                                    }`}
+                                  >
+                                    {resource.resourceRequests[0].approvalSteps.finance.status === 'completed' ? (
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                        <polyline points="20 6 9 17 4 12" />
+                                      </svg>
+                                    ) : (
+                                      <span 
+                                        className={resource.resourceRequests[0].currentApprovalStep === 'finance' ? 'text-background' : 'text-muted-foreground'} 
+                                        style={{ fontSize: 'var(--text-xs)' }}
+                                      >
+                                        5
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div 
+                                    className="text-center text-card-foreground" 
+                                    style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}
+                                  >
+                                    Finance
+                                  </div>
+                                  {resource.resourceRequests[0].approvalSteps.finance.status === 'completed' && (
+                                    <div className="text-center text-muted-foreground caption" style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}>
+                                      {resource.resourceRequests[0].approvalSteps.finance.approver}
+                                    </div>
+                                  )}
+                                  {/* Review button for Step 5 */}
+                                  {resource.resourceRequests[0].status === 'pending-approval' && resource.resourceRequests[0].currentApprovalStep === 'finance' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: '',
+                                            approverPosition: '',
+                                            currentStep: 'finance',
+                                            stepLabel: 'Finance'
+                                          });
+                                          setApproverName('');
+                                          setApproverPosition('');
+                                          setApprovalComments('');
+                                          setIsViewMode(false);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        Review Approval
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {/* View button for Step 5 after approval */}
+                                  {resource.resourceRequests[0].approvalSteps.finance.status === 'completed' && (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedApprovalRequest({
+                                            resourceId: resource.id,
+                                            requestId: resource.resourceRequests[0].id,
+                                            requestName: resource.resource,
+                                            approverName: resource.resourceRequests[0].approvalSteps.finance.approver || '',
+                                            approverPosition: '',
+                                            currentStep: 'finance',
+                                            stepLabel: 'Finance',
+                                            approvalTimestamp: resource.resourceRequests[0].approvalSteps.finance.timestamp
+                                          });
+                                          setApproverName(resource.resourceRequests[0].approvalSteps.finance.approver || '');
+                                          setApproverPosition('');
+                                          setApprovalComments(resource.resourceRequests[0].approvalSteps.finance.comments || '');
+                                          setIsViewMode(true);
+                                          setApprovalModalOpen(true);
+                                        }}
+                                        className="border-border text-foreground hover:bg-muted h-7 px-2"
+                                        style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-xs)' }}
+                                      >
+                                        View
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
