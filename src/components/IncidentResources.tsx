@@ -109,6 +109,7 @@ interface Resource {
   requestedReportingDatetime?: string;
   requestedDemobilizationDatetime?: string;
   assignee?: string;
+  signInStatus?: string;
   linkedIncidentRosterPosition?: string;
   currentOpPeriod?: string;
   nextOpPeriod?: string;
@@ -598,6 +599,24 @@ export function IncidentResources() {
       poc: 'CDR John Mitchell',
       aor: 'District 1',
       incident: 'Boston Harbor Oil Spill Response',
+      assignee: 'CAPT John Smith',
+      linkedIncidentRosterPosition: 'Incident Commander',
+      items: [],
+      resourceRequests: [],
+    },
+    {
+      id: 'rul-001',
+      resource: 'Resource Unit Leader',
+      checkInStatus: 'checked-in',
+      type: 'Personnel',
+      kind: 'Personnel',
+      unit: 'Sector Boston',
+      poc: 'CDR John Mitchell',
+      aor: 'District 1',
+      incident: 'Boston Harbor Oil Spill Response',
+      assignee: 'CAPT John Smith',
+      signInStatus: 'Signed In',
+      linkedIncidentRosterPosition: 'Resource Unit Leader',
       items: [],
       resourceRequests: [],
     },
@@ -3973,11 +3992,14 @@ export function IncidentResources() {
                                 >
                                   <div className="flex items-center gap-2">
                                     <Sparkles className="h-4 w-4 text-white" />
-                                    <span>Autofill From Work Assignment</span>
+                                    <span className="text-white">Autofill From Work Assignment</span>
                                   </div>
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="placeholder">Select work assignment...</SelectItem>
+                                  <SelectItem value="placeholder" disabled>Select work assignment...</SelectItem>
+                                  {Object.keys(WORK_ASSIGNMENT_DETAILS).map((key) => (
+                                    <SelectItem key={key} value={key}>{key}</SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             </div>
@@ -6423,8 +6445,8 @@ export function IncidentResources() {
                         /* Edit Mode - Editable Fields */
                         <>
                           <div className="grid grid-cols-4 gap-6">
-                          {/* Assignee - Only for Incident Commander */}
-                          {resource.id === 'ic-001' && (
+                          {/* Assignee - Only for Incident Commander and Resource Unit Leader */}
+                          {(resource.id === 'ic-001' || resource.id === 'rul-001') && (
                             <>
                               <div>
                                 <div 
@@ -6452,7 +6474,7 @@ export function IncidentResources() {
                                 <Input
                                   type="text"
                                   placeholder="Enter position"
-                                  value={editedResource.linkedIncidentRosterPosition || 'Incident Commander'}
+                                  value={editedResource.linkedIncidentRosterPosition || resource.linkedIncidentRosterPosition || ''}
                                   onChange={(e) => setEditedResource({ ...editedResource, linkedIncidentRosterPosition: e.target.value })}
                                   className="bg-input-background border-border text-foreground"
                                   style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
@@ -6717,36 +6739,38 @@ export function IncidentResources() {
                                   />
                                 </div>
                               </div>
-                              <div style={{ marginLeft: '-400px' }}>
-                                <div className="flex gap-0 border border-border" style={{ borderRadius: 'var(--radius)', overflow: 'hidden', width: '50%' }}>
-                                  <button
-                                    onClick={() => {
-                                      setResources(resources.map(r => 
-                                        r.id === resource.id ? { ...r, checkInStatus: 'not-checked-in' } : r
-                                      ));
-                                    }}
-                                    className={resource.checkInStatus !== 'checked-in'
-                                      ? 'flex-1 px-4 py-2 bg-slate-700 text-primary-foreground hover:bg-slate-600 whitespace-normal border-l-2 border-t-2 border-b-2 border-r-2 border-white'
-                                      : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 border-r border-border whitespace-normal'}
-                                    style={{ fontSize: 'var(--text-sm)' }}
-                                  >
-                                    Checked-Out of Incident: Boston Harbor Oil Spill Response
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setResources(resources.map(r => 
-                                        r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
-                                      ));
-                                    }}
-                                    className={resource.checkInStatus === 'checked-in'
-                                      ? 'flex-1 px-4 py-2 bg-status-success hover:bg-status-success/90 whitespace-normal border-l-2 border-r-2 border-t-2 border-b-2 border-white'
-                                      : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 whitespace-normal'}
-                                    style={{ fontSize: 'var(--text-sm)', color: resource.checkInStatus === 'checked-in' ? '#000000' : undefined }}
-                                  >
-                                    Checked-In to Incident: Boston Harbor Oil Spill Response
-                                  </button>
+                              {resource.id !== 'rul-001' && (
+                                <div style={{ marginLeft: '-400px' }}>
+                                  <div className="flex gap-0 border border-border" style={{ borderRadius: 'var(--radius)', overflow: 'hidden', width: '50%' }}>
+                                    <button
+                                      onClick={() => {
+                                        setResources(resources.map(r => 
+                                          r.id === resource.id ? { ...r, checkInStatus: 'not-checked-in' } : r
+                                        ));
+                                      }}
+                                      className={resource.checkInStatus !== 'checked-in'
+                                        ? 'flex-1 px-4 py-2 bg-slate-700 text-primary-foreground hover:bg-slate-600 whitespace-normal border-l-2 border-t-2 border-b-2 border-r-2 border-white'
+                                        : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 border-r border-border whitespace-normal'}
+                                      style={{ fontSize: 'var(--text-sm)' }}
+                                    >
+                                      Checked-Out of Incident: Boston Harbor Oil Spill Response
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setResources(resources.map(r => 
+                                          r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
+                                        ));
+                                      }}
+                                      className={resource.checkInStatus === 'checked-in'
+                                        ? 'flex-1 px-4 py-2 bg-status-success hover:bg-status-success/90 whitespace-normal border-l-2 border-r-2 border-t-2 border-b-2 border-white'
+                                        : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 whitespace-normal'}
+                                      style={{ fontSize: 'var(--text-sm)', color: resource.checkInStatus === 'checked-in' ? '#000000' : undefined }}
+                                    >
+                                      Checked-In to Incident: Boston Harbor Oil Spill Response
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
                           </div>
 
@@ -6805,23 +6829,54 @@ export function IncidentResources() {
                       ) : (
                         /* View Mode - Display Only */
                         <>
-                          <div className="grid grid-cols-4 gap-6">
-                          {/* Assignee - Only for Incident Commander */}
-                          {resource.id === 'ic-001' && (
+                          <div className={resource.id === 'rul-001' ? 'grid gap-6' : 'grid grid-cols-4 gap-6'} style={resource.id === 'rul-001' ? { gridTemplateColumns: '2fr 1fr 1fr 1fr' } : {}}>
+                          {/* Assignee - Only for Incident Commander and Resource Unit Leader */}
+                          {(resource.id === 'ic-001' || resource.id === 'rul-001') && (
                             <>
                               <div>
-                                <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
-                                >
-                                  Assignee
-                                </div>
-                                <div 
-                                  className="text-card-foreground" 
-                                  style={{ fontSize: 'var(--text-sm)' }}
-                                >
-                                  CAPT John Smith
-                                </div>
+                                {resource.id === 'rul-001' ? (
+                                  <div style={{ fontSize: 'var(--text-sm)' }}>
+                                    <div className="flex gap-4 mb-1">
+                                      <span className="text-foreground" style={{ fontSize: 'var(--text-xs)', minWidth: '130px' }}>Assignee</span>
+                                      <span className="text-foreground" style={{ fontSize: 'var(--text-xs)', minWidth: '95px' }}>Activation Status</span>
+                                      <span className="text-foreground" style={{ fontSize: 'var(--text-xs)', minWidth: '95px' }}>Check-In Status</span>
+                                      <span className="text-foreground" style={{ fontSize: 'var(--text-xs)' }}>Sign-In Status</span>
+                                    </div>
+                                    {[
+                                      { name: 'CAPT John Smith', activationStatus: 'Activated', checkInStatus: 'Checked-In', signInStatus: 'Signed In' },
+                                      { name: 'LT Sarah Johnson', activationStatus: 'Activated', checkInStatus: 'Checked-In', signInStatus: 'Signed In' },
+                                      { name: 'CDR Michael Brown', activationStatus: 'Deactivated', checkInStatus: 'Demobilized', signInStatus: 'Signed Out' },
+                                    ].map((a, i) => (
+                                      <div key={i} className="flex gap-4 text-card-foreground mb-1">
+                                        <span style={{ minWidth: '130px' }}>{a.name}</span>
+                                        <span style={{ minWidth: '95px', color: a.activationStatus === 'Activated' ? 'var(--status-success)' : 'var(--status-error, #ef4444)' }}>
+                                          {a.activationStatus}
+                                        </span>
+                                        <span style={{ minWidth: '95px', color: a.checkInStatus === 'Checked-In' ? 'var(--status-success)' : 'var(--status-error, #ef4444)' }}>
+                                          {a.checkInStatus}
+                                        </span>
+                                        <span style={{ color: a.signInStatus === 'Signed In' ? 'var(--status-success)' : 'var(--status-error, #ef4444)' }}>
+                                          {a.signInStatus}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div 
+                                      className="text-foreground mb-1" 
+                                      style={{ fontSize: 'var(--text-xs)' }}
+                                    >
+                                      Assignee
+                                    </div>
+                                    <div 
+                                      className="text-card-foreground" 
+                                      style={{ fontSize: 'var(--text-sm)' }}
+                                    >
+                                      {resource.assignee || 'CAPT John Smith'}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                               <div>
                                 <div 
@@ -6835,7 +6890,7 @@ export function IncidentResources() {
                                   style={{ fontSize: 'var(--text-sm)' }}
                                   onClick={() => setRosterPositionModalOpen(true)}
                                 >
-                                  Incident Commander
+                                  {resource.linkedIncidentRosterPosition || 'Incident Commander'}
                                 </div>
                               </div>
                             </>
@@ -7022,36 +7077,38 @@ export function IncidentResources() {
                                   </div>
                                 </div>
                               </div>
-                              <div style={{ marginLeft: '-400px' }}>
-                                <div className="flex gap-0 border border-border" style={{ borderRadius: 'var(--radius)', overflow: 'hidden', width: '50%' }}>
-                                  <button
-                                    onClick={() => {
-                                      setResources(resources.map(r => 
-                                        r.id === resource.id ? { ...r, checkInStatus: 'not-checked-in' } : r
-                                      ));
-                                    }}
-                                    className={resource.checkInStatus !== 'checked-in'
-                                      ? 'flex-1 px-4 py-2 bg-slate-700 text-primary-foreground hover:bg-slate-600 whitespace-normal border-l-2 border-t-2 border-b-2 border-r-2 border-white'
-                                      : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 border-r border-border whitespace-normal'}
-                                    style={{ fontSize: 'var(--text-sm)' }}
-                                  >
-                                    Checked-Out of Incident: Boston Harbor Oil Spill Response
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setResources(resources.map(r => 
-                                        r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
-                                      ));
-                                    }}
-                                    className={resource.checkInStatus === 'checked-in'
-                                      ? 'flex-1 px-4 py-2 bg-status-success hover:bg-status-success/90 whitespace-normal border-l-2 border-r-2 border-t-2 border-b-2 border-white'
-                                      : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 whitespace-normal'}
-                                    style={{ fontSize: 'var(--text-sm)', color: resource.checkInStatus === 'checked-in' ? '#000000' : undefined }}
-                                  >
-                                    Checked-In to Incident: Boston Harbor Oil Spill Response
-                                  </button>
+                              {resource.id !== 'rul-001' && (
+                                <div style={{ marginLeft: '-400px' }}>
+                                  <div className="flex gap-0 border border-border" style={{ borderRadius: 'var(--radius)', overflow: 'hidden', width: '50%' }}>
+                                    <button
+                                      onClick={() => {
+                                        setResources(resources.map(r => 
+                                          r.id === resource.id ? { ...r, checkInStatus: 'not-checked-in' } : r
+                                        ));
+                                      }}
+                                      className={resource.checkInStatus !== 'checked-in'
+                                        ? 'flex-1 px-4 py-2 bg-slate-700 text-primary-foreground hover:bg-slate-600 whitespace-normal border-l-2 border-t-2 border-b-2 border-r-2 border-white'
+                                        : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 border-r border-border whitespace-normal'}
+                                      style={{ fontSize: 'var(--text-sm)' }}
+                                    >
+                                      Checked-Out of Incident: Boston Harbor Oil Spill Response
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setResources(resources.map(r => 
+                                          r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
+                                        ));
+                                      }}
+                                      className={resource.checkInStatus === 'checked-in'
+                                        ? 'flex-1 px-4 py-2 bg-status-success hover:bg-status-success/90 whitespace-normal border-l-2 border-r-2 border-t-2 border-b-2 border-white'
+                                        : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 whitespace-normal'}
+                                      style={{ fontSize: 'var(--text-sm)', color: resource.checkInStatus === 'checked-in' ? '#000000' : undefined }}
+                                    >
+                                      Checked-In to Incident: Boston Harbor Oil Spill Response
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
                           </div>
 
