@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Trash2, Pencil, Map, ChevronDown, ChevronRight, Search, X, Filter, FileText, Sparkles } from 'lucide-react';
+import { Trash2, Pencil, Map, ChevronDown, ChevronRight, Search, X, Filter, FileText, Sparkles, ExternalLink } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -74,7 +74,7 @@ interface ResourceRequest {
 interface Resource {
   id: string;
   resource: string;
-  checkInStatus: 'checked-in' | 'not-checked-in';
+  checkInStatus: 'checked-in' | 'not-checked-in' | 'not-arrived';
   type: string;
   kind: string;
   quantity?: number;
@@ -101,6 +101,9 @@ interface Resource {
   logisticsOrderPlacedByOther?: boolean;
   logisticsOrderPlacedByOtherText?: string;
   owner?: string;
+  owningUnit?: string;
+  personsOnBoard?: string;
+  hullOrTailNumber?: string;
   requestStatus?: string;
   latitude?: string;
   longitude?: string;
@@ -592,7 +595,7 @@ export function IncidentResources() {
     {
       id: 'ic-001',
       resource: 'Incident Commander',
-      checkInStatus: 'checked-in',
+      checkInStatus: 'not-arrived',
       type: 'Personnel',
       kind: 'Personnel',
       unit: 'Sector Boston',
@@ -607,7 +610,7 @@ export function IncidentResources() {
     {
       id: 'rul-001',
       resource: 'Resource Unit Leader',
-      checkInStatus: 'checked-in',
+      checkInStatus: 'not-arrived',
       type: 'Personnel',
       kind: 'Personnel',
       unit: 'Sector Boston',
@@ -623,7 +626,7 @@ export function IncidentResources() {
     {
       id: '14573',
       resource: 'Helicopter Request',
-      checkInStatus: 'checked-in',
+      checkInStatus: 'not-arrived',
       type: 'Type 1',
       kind: 'equipment',
       quantity: 2,
@@ -765,7 +768,7 @@ export function IncidentResources() {
     {
       id: '72674',
       resource: 'Requesting Cutter',
-      checkInStatus: 'not-checked-in',
+      checkInStatus: 'not-arrived',
       type: 'Type 2',
       kind: 'facilities',
       quantity: 1,
@@ -855,7 +858,7 @@ export function IncidentResources() {
     {
       id: '42573',
       resource: 'Marine Safety Detachment',
-      checkInStatus: 'not-checked-in',
+      checkInStatus: 'not-arrived',
       type: 'Type 3',
       kind: 'teams',
       quantity: 4,
@@ -1240,6 +1243,9 @@ export function IncidentResources() {
   const [filterIncidentStatus, setFilterIncidentStatus] = useState<Set<string>>(new Set());
   const [filterRequestStatus, setFilterRequestStatus] = useState<Set<string>>(new Set());
   const [rosterPositionModalOpen, setRosterPositionModalOpen] = useState(false);
+  const [ics204ModalOpen, setIcs204ModalOpen] = useState(false);
+  const [ics213rrModalOpen, setIcs213rrModalOpen] = useState(false);
+  const [ics221ModalOpen, setIcs221ModalOpen] = useState(false);
 
   const handleDeleteResource = (id: string) => {
     setResources(resources.filter((resource) => resource.id !== id));
@@ -1412,6 +1418,11 @@ export function IncidentResources() {
         checkInStatus: resource.checkInStatus,
         requestRecipient: resource.requestRecipient || '',
         poc: resource.poc || '',
+        pocEmail: resource.pocEmail || '',
+        owner: resource.owner || '',
+        owningUnit: resource.owningUnit || '',
+        personsOnBoard: resource.personsOnBoard || '',
+        hullOrTailNumber: resource.hullOrTailNumber || '',
         currentLocation: resource.currentLocation || '',
         datetimeOrdered: resource.datetimeOrdered || '',
         datetimeOrderedTimezone: resource.datetimeOrderedTimezone || 'UTC',
@@ -2265,7 +2276,7 @@ export function IncidentResources() {
           <div className="w-8"></div>
           
           {/* Column Headers with Filters */}
-          <div className="flex-1 grid gap-4" style={{ gridTemplateColumns: viewMode === 'requests' ? '0.63fr 0.7fr 0.42fr 2fr' : '0.9fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
+          <div className="flex-1 grid gap-4 justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
             {/* Resource/Request Name Filter */}
             <div className="flex flex-col gap-2">
               <div className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
@@ -2905,8 +2916,8 @@ export function IncidentResources() {
 
 
 
-          {/* Space for action buttons */}
-          <div className="flex gap-2">
+          {/* Space for action buttons - fixed width to match row for column alignment */}
+          <div className="flex gap-2 shrink-0 w-[8rem]">
             <div className="h-8 w-8"></div>
             <div className="h-8 w-8"></div>
             <div className="h-8 w-8"></div>
@@ -3075,7 +3086,7 @@ export function IncidentResources() {
                 </select>
                 <select
                   value={newResource.checkInStatus}
-                  onChange={(e) => setNewResource({ ...newResource, checkInStatus: e.target.value as 'checked-in' | 'not-checked-in' })}
+                  onChange={(e) => setNewResource({ ...newResource, checkInStatus: e.target.value as 'checked-in' | 'not-checked-in' | 'not-arrived' })}
                   className="h-10 px-3 bg-input-background border border-border text-foreground"
                   style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
                 >
@@ -3117,8 +3128,8 @@ export function IncidentResources() {
                     <div className="grid grid-cols-4 gap-6">
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Kind
                         </div>
@@ -3138,8 +3149,8 @@ export function IncidentResources() {
                       </div>
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Type
                         </div>
@@ -3159,8 +3170,8 @@ export function IncidentResources() {
                       </div>
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Unit
                         </div>
@@ -3175,8 +3186,8 @@ export function IncidentResources() {
                       </div>
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Description
                         </div>
@@ -3195,8 +3206,8 @@ export function IncidentResources() {
                     <div className="grid grid-cols-2 gap-6">
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Suggested Sources of Supply
                         </div>
@@ -3211,8 +3222,8 @@ export function IncidentResources() {
                       </div>
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Acceptable Substitutes
                         </div>
@@ -3231,8 +3242,8 @@ export function IncidentResources() {
                     <div className="grid grid-cols-3 gap-6">
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Cost Per Unit
                         </div>
@@ -3247,8 +3258,8 @@ export function IncidentResources() {
                       </div>
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Quantity
                         </div>
@@ -3263,8 +3274,8 @@ export function IncidentResources() {
                       </div>
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Total Cost
                         </div>
@@ -3284,8 +3295,8 @@ export function IncidentResources() {
                     <div className="grid grid-cols-1 gap-6">
                       <div>
                         <div 
-                          className="text-foreground mb-1" 
-                          style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                         >
                           Reporting Site
                         </div>
@@ -3418,7 +3429,7 @@ export function IncidentResources() {
 
                   {editingResourceId === resource.id ? (
                     /* Edit Mode */
-                    <div className="flex-1 grid gap-4 items-center" style={{ gridTemplateColumns: viewMode === 'requests' ? '0.63fr 0.7fr 0.42fr 2fr' : viewMode === 'assigned' ? '0.9fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr' : '0.9fr 0.6fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
+                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : viewMode === 'assigned' ? 'minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' : 'minmax(0, 0.9fr) minmax(0, 0.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
                       {/* Check if this is a new resource request (add state) */}
                       {viewMode === 'requests' && resource.id.startsWith('req-new-') ? (
                         /* Add State - Show Request Name Input */
@@ -3749,7 +3760,7 @@ export function IncidentResources() {
                       ) : (
                         <select
                           value={editedResource.checkInStatus}
-                          onChange={(e) => setEditedResource({ ...editedResource, checkInStatus: e.target.value as 'checked-in' | 'not-checked-in' })}
+                          onChange={(e) => setEditedResource({ ...editedResource, checkInStatus: e.target.value as 'checked-in' | 'not-checked-in' | 'not-arrived' })}
                           className="h-10 px-3 bg-input-background border border-border text-foreground"
                           style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
                         >
@@ -3776,7 +3787,7 @@ export function IncidentResources() {
                     </div>
                   ) : (
                     /* View Mode */
-                    <div className="flex-1 grid gap-4 items-center" style={{ gridTemplateColumns: viewMode === 'requests' ? '0.63fr 0.7fr 0.42fr 2fr' : '0.9fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
+                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
                       <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
                         {viewMode === 'requests' 
                           ? (resource.resource || '-')
@@ -3865,10 +3876,10 @@ export function IncidentResources() {
                       )}
                       {viewMode !== 'requests' && viewMode !== 'all' && (
                         <div 
-                          className={getCheckInStatusColor(resource.checkInStatus)} 
+                          className="text-status-success" 
                           style={{ fontSize: 'var(--text-sm)' }}
                         >
-                          {resource.checkInStatus === 'checked-in' ? 'Available: Unassigned' : 'Unavailable: In Use by Division Alpha'}
+                          Available: Unassigned
                         </div>
                       )}
 
@@ -3890,8 +3901,8 @@ export function IncidentResources() {
                     </div>
                   )}
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  {/* Action Buttons - fixed width to match header for column alignment */}
+                  <div className="flex gap-2 shrink-0 w-[8rem]" onClick={(e) => e.stopPropagation()}>
                     {viewMode === 'requests' && (
                       <Button
                         size="sm"
@@ -3940,7 +3951,7 @@ export function IncidentResources() {
 
               {/* Expanded Content */}
               {expandedRows.has(resource.id) && (
-                <div className="px-6 py-4 bg-muted/5">
+                <div className={`py-4 bg-muted/5 ${viewMode === 'requests' ? 'px-6' : 'pl-4 pr-6'}`}>
                   {viewMode === 'requests' ? (
                     /* Resource Requests Mode - Show different fields */
                     editingResourceId === resource.id ? (
@@ -4010,8 +4021,8 @@ export function IncidentResources() {
                               <div className="flex items-end gap-4">
                                 <div className="w-16">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Quantity
                                   </div>
@@ -4026,8 +4037,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-24">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Kind
                                   </div>
@@ -4047,8 +4058,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-24">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Type
                                   </div>
@@ -4068,8 +4079,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-20">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Priority
                                   </div>
@@ -4087,8 +4098,8 @@ export function IncidentResources() {
                                 </div>
                                 <div style={{ width: '400px' }}>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Description
                                   </div>
@@ -4103,8 +4114,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-32">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Requested Reporting Location
                                   </div>
@@ -4119,8 +4130,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-48">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Requested Reporting Datetime
                                   </div>
@@ -4134,8 +4145,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-48">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Requested Demobilization Datetime
                                   </div>
@@ -4149,8 +4160,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-24">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Order # (LSC)
                                   </div>
@@ -4165,8 +4176,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-48">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     ETA (LSC)
                                   </div>
@@ -4180,8 +4191,8 @@ export function IncidentResources() {
                                 </div>
                                 <div className="w-20">
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Cost (LSC)
                                   </div>
@@ -4213,8 +4224,8 @@ export function IncidentResources() {
                                       <ChevronDown className="ml-2 h-4 w-4" />
                                     </Button>
                                   </PopoverTrigger>
-                                  <PopoverContent 
-                                    className="w-[75rem] p-0 bg-card border-border" 
+                                  <PopoverContent
+                                    className="w-[130rem] p-0 bg-card border-border"
                                     style={{ borderRadius: 'var(--radius)' }}
                                     align="start"
                                   >
@@ -4272,6 +4283,19 @@ export function IncidentResources() {
                                           </Button>
                                         </div>
                                       )}
+                                      {/* Column headers for resource options */}
+                                      <div className="flex items-center space-x-2 px-2 py-2 border-b border-border text-primary-foreground font-medium" style={{ fontSize: 'var(--text-xs)', backgroundColor: '#000000' }}>
+                                        <div className="w-6 shrink-0" />
+                                        <div className="flex flex-1 items-center gap-2">
+                                          <div className="flex-1">Resource</div>
+                                          <div className="w-24">Kind</div>
+                                          <div className="w-28">Type</div>
+                                          <div className="w-16">Quantity</div>
+                                          <div className="w-52">Current Op Period Work Availability</div>
+                                          <div className="w-52">Request Status</div>
+                                          <div className="w-48">Current Location</div>
+                                        </div>
+                                      </div>
                                       <div className="p-2 space-y-1">
                                         {[
                                           { id: 'res-1', name: 'MH-65 Dolphin Helicopter', kind: 'Aircraft', type: 'Helicopter', quantity: 2, availability: 'Unassigned', requestStatus: 'Not Requested', availabilityUntil: '01/28/2026 1800', location: 'Air Station Kodiak' },
@@ -4325,10 +4349,10 @@ export function IncidentResources() {
                                                 className="text-foreground w-16" 
                                                 style={{ fontSize: 'var(--text-sm)' }}
                                               >
-                                                Qty: {existingResource.quantity}
+                                                {existingResource.quantity}
                                               </div>
                                               <div 
-                                                className="w-52" 
+                                                className="w-52 flex items-center gap-1" 
                                                 style={{ 
                                                   fontSize: 'var(--text-sm)',
                                                   color: existingResource.availability === 'Unassigned' ? '#22c55e' : 
@@ -4336,15 +4360,37 @@ export function IncidentResources() {
                                                 }}
                                               >
                                                 {existingResource.availability}
+                                                {existingResource.availability === 'In Use by Division Alpha' && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 shrink-0 text-foreground hover:bg-muted/20"
+                                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIcs204ModalOpen(true); }}
+                                                    style={{ borderRadius: 'var(--radius)' }}
+                                                  >
+                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                  </Button>
+                                                )}
                                               </div>
                                               <div 
-                                                className="w-52" 
+                                                className="w-52 flex items-center gap-1" 
                                                 style={{ 
                                                   fontSize: 'var(--text-sm)',
                                                   color: existingResource.requestStatus === 'Not Requested' ? '#22c55e' : '#ef4444'
                                                 }}
                                               >
                                                 {existingResource.requestStatus}
+                                                {existingResource.requestStatus !== 'Not Requested' && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 shrink-0 text-foreground hover:bg-muted/20"
+                                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIcs213rrModalOpen(true); }}
+                                                    style={{ borderRadius: 'var(--radius)' }}
+                                                  >
+                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                  </Button>
+                                                )}
                                               </div>
                                               <div 
                                                 className="text-foreground w-48" 
@@ -4825,8 +4871,8 @@ export function IncidentResources() {
                             <div className="grid grid-cols-2 gap-6">
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Requisition/Purchase Order Number
                                 </div>
@@ -4840,8 +4886,8 @@ export function IncidentResources() {
                               </div>
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Supplier (Name/Phone/Fax/Email)
                                 </div>
@@ -4856,8 +4902,8 @@ export function IncidentResources() {
                             </div>
                             <div>
                               <div 
-                                className="text-foreground mb-1" 
-                                style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                               >
                                 Notes
                               </div>
@@ -4944,8 +4990,8 @@ export function IncidentResources() {
                           </div>
                           <div>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Reply/Comments from Finance
                             </div>
@@ -5012,8 +5058,8 @@ export function IncidentResources() {
                               {/* Resource Name */}
                             <div>
                               <div 
-                                className="text-foreground mb-1" 
-                                style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                               >
                                 Resource Name
                               </div>
@@ -5032,8 +5078,8 @@ export function IncidentResources() {
                               {/* Kind */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Kind
                                 </div>
@@ -5055,8 +5101,8 @@ export function IncidentResources() {
                               {/* Type */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Type
                                 </div>
@@ -5078,8 +5124,8 @@ export function IncidentResources() {
                               {/* Unit */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Unit
                                 </div>
@@ -5096,8 +5142,8 @@ export function IncidentResources() {
                               {/* Description */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Description
                                 </div>
@@ -5117,8 +5163,8 @@ export function IncidentResources() {
                               {/* Suggested Sources of Supply */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Suggested Sources of Supply
                                 </div>
@@ -5135,8 +5181,8 @@ export function IncidentResources() {
                               {/* Acceptable Substitutes */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Acceptable Substitutes
                                 </div>
@@ -5156,8 +5202,8 @@ export function IncidentResources() {
                               {/* Cost Per Unit */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Cost Per Unit
                                 </div>
@@ -5174,8 +5220,8 @@ export function IncidentResources() {
                               {/* Quantity */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Quantity
                                 </div>
@@ -5192,8 +5238,8 @@ export function IncidentResources() {
                               {/* Total Cost */}
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Total Cost
                                 </div>
@@ -5213,8 +5259,8 @@ export function IncidentResources() {
                             <div className="grid grid-cols-1 gap-6">
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Reporting Site
                                 </div>
@@ -5273,8 +5319,8 @@ export function IncidentResources() {
                             <div className="grid grid-cols-1 gap-6">
                               <div>
                                 <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                 >
                                   Status
                                 </div>
@@ -6440,54 +6486,56 @@ export function IncidentResources() {
                     )
                   ) : (
                     /* All Resources / Resources Assigned Mode */
-                    <>
+                    <div className="flex gap-4">
+                      <div className="w-8 shrink-0" />
+                      <div className="flex-1 space-y-6" style={{ minWidth: 0 }}>
                       {editingResourceId === resource.id ? (
                         /* Edit Mode - Editable Fields */
                         <>
-                          <div className="grid grid-cols-4 gap-6">
-                          {/* Assignee - Only for Incident Commander and Resource Unit Leader */}
+                          <div className="grid gap-4 gap-y-6" style={{ gridTemplateColumns: viewMode === 'assigned' ? '0.9fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr' : '0.9fr 0.6fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
+                          {/* Assignee - Col 1 (Resource Name) - Only for Incident Commander and Resource Unit Leader */}
                           {(resource.id === 'ic-001' || resource.id === 'rul-001') && (
-                            <>
-                              <div>
-                                <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
-                                >
-                                  Assignee
-                                </div>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter assignee"
-                                  value={editedResource.assignee || 'CAPT John Smith'}
-                                  onChange={(e) => setEditedResource({ ...editedResource, assignee: e.target.value })}
-                                  className="bg-input-background border-border text-foreground"
-                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                                />
+                            <div style={{ gridColumn: 1 }}>
+                              <div 
+                                className="text-foreground mb-1" 
+                                style={{ fontSize: 'var(--text-sm)' }}
+                              >
+                                Assignee
                               </div>
-                              <div>
-                                <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
-                                >
-                                  Linked Incident Roster Position
-                                </div>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter position"
-                                  value={editedResource.linkedIncidentRosterPosition || resource.linkedIncidentRosterPosition || ''}
-                                  onChange={(e) => setEditedResource({ ...editedResource, linkedIncidentRosterPosition: e.target.value })}
-                                  className="bg-input-background border-border text-foreground"
-                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                                />
+                              <Input
+                                type="text"
+                                placeholder="Enter assignee"
+                                value={editedResource.assignee || 'CAPT John Smith'}
+                                onChange={(e) => setEditedResource({ ...editedResource, assignee: e.target.value })}
+                                className="bg-input-background border-border text-foreground"
+                                style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                              />
+                            </div>
+                          )}
+                          {(resource.id === 'ic-001' || resource.id === 'rul-001') && (
+                            <div style={{ gridColumn: 2 }}>
+                              <div 
+                                className="text-foreground mb-1" 
+                                style={{ fontSize: 'var(--text-sm)' }}
+                              >
+                                Linked Incident Roster Position
                               </div>
-                            </>
+                              <Input
+                                type="text"
+                                placeholder="Enter position"
+                                value={editedResource.linkedIncidentRosterPosition || resource.linkedIncidentRosterPosition || ''}
+                                onChange={(e) => setEditedResource({ ...editedResource, linkedIncidentRosterPosition: e.target.value })}
+                                className="bg-input-background border-border text-foreground"
+                                style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                              />
+                            </div>
                           )}
 
-                          {/* Current Location */}
-                          <div>
+                          {/* Current Location - Col 3 (Type) or Col 1 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 3 : 1 }}>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Current Location
                             </div>
@@ -6521,11 +6569,11 @@ export function IncidentResources() {
                             </div>
                           </div>
 
-                          {/* Datetime Ordered */}
-                          <div>
+                          {/* Datetime Ordered - Col 4 (AOR) or Col 2 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 4 : 2 }}>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Datetime Ordered
                             </div>
@@ -6552,11 +6600,11 @@ export function IncidentResources() {
                             </div>
                           </div>
 
-                          {/* Point of Contact */}
-                          <div>
+                          {/* Point of Contact - Col 5 (Incident) or Col 3 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 5 : 3 }}>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Point of Contact
                             </div>
@@ -6580,11 +6628,11 @@ export function IncidentResources() {
                             </div>
                           </div>
 
-                          {/* Owner */}
-                          <div>
+                          {/* Owner - Col 6 (Current Work Availability) or Col 4 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 6 : 4 }}>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Owner
                             </div>
@@ -6602,6 +6650,55 @@ export function IncidentResources() {
                               <option value="Deployable Specialized Forces (DSF)">Deployable Specialized Forces (DSF)</option>
                             </select>
                           </div>
+
+                          {/* Owning Unit - Col 7 (Request Status) or Col 5 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 7 : 5 }}>
+                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Owning Unit</div>
+                            <Input
+                              type="text"
+                              placeholder="Enter owning unit"
+                              value={editedResource.owningUnit || ''}
+                              onChange={(e) => setEditedResource({ ...editedResource, owningUnit: e.target.value })}
+                              className="bg-input-background border-border text-foreground"
+                              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                            />
+                          </div>
+                          {/* Persons on Board - Row 2 Col 1 or Col 6 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 1 : 6, gridRow: 2 }}>
+                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Persons on Board</div>
+                            <Input
+                              type="text"
+                              placeholder="Enter persons on board"
+                              value={editedResource.personsOnBoard || ''}
+                              onChange={(e) => setEditedResource({ ...editedResource, personsOnBoard: e.target.value })}
+                              className="bg-input-background border-border text-foreground"
+                              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                            />
+                          </div>
+                          {/* Quantity - Row 2 Col 2 or Col 7 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 2 : 7, gridRow: 2 }}>
+                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Quantity</div>
+                            <Input
+                              type="number"
+                              placeholder="Enter quantity"
+                              value={editedResource.quantity ?? ''}
+                              onChange={(e) => setEditedResource({ ...editedResource, quantity: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                              className="bg-input-background border-border text-foreground"
+                              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                            />
+                          </div>
+                          {/* Hull or Tail Number - Row 2 Col 3 or Row 2 Col 1 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 3 : 1, gridRow: 2 }}>
+                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Hull or Tail Number</div>
+                            <Input
+                              type="text"
+                              placeholder="Enter hull or tail number"
+                              value={editedResource.hullOrTailNumber || ''}
+                              onChange={(e) => setEditedResource({ ...editedResource, hullOrTailNumber: e.target.value })}
+                              className="bg-input-background border-border text-foreground"
+                              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                            />
+                          </div>
                           </div>
 
                           {/* Location Row - Edit Mode */}
@@ -6609,8 +6706,8 @@ export function IncidentResources() {
                           {/* Latitude */}
                           <div>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Latitude
                             </div>
@@ -6627,8 +6724,8 @@ export function IncidentResources() {
                           {/* Longitude */}
                           <div>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Longitude
                             </div>
@@ -6647,8 +6744,8 @@ export function IncidentResources() {
                           <div className="grid grid-cols-1 gap-6 mt-6">
                             <div>
                               <div 
-                                className="text-foreground mb-1" 
-                                style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                               >
                                 Capabilities
                               </div>
@@ -6659,6 +6756,162 @@ export function IncidentResources() {
                                 className="bg-input-background border-border text-foreground min-h-[100px]"
                                 style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
                               />
+                            </div>
+                          </div>
+
+                          {/* Work Assignment List Attachment Row - Edit Mode */}
+                          <div className="grid grid-cols-1 gap-6 mt-6">
+                            <div className="space-y-3">
+                              <div>
+                                <div
+                                  className="text-foreground mb-3"
+                                  style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-semibold)' }}
+                                >
+                                  Attached to Resource Request
+                                </div>
+                                <Input
+                                  type="text"
+                                  value={editedResource.attachedToResourceRequest || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, attachedToResourceRequest: e.target.value })}
+                                  placeholder="Enter resource request..."
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                              <div>
+                                <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  Requested Reporting Datetime
+                                </div>
+                                <Input
+                                  type="datetime-local"
+                                  value={editedResource.requestedReportingDatetime || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, requestedReportingDatetime: e.target.value })}
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                              <div>
+                                <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  Requested Demobilization Datetime
+                                </div>
+                                <Input
+                                  type="datetime-local"
+                                  value={editedResource.requestedDemobilizationDatetime || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, requestedDemobilizationDatetime: e.target.value })}
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Work Assignment List Attachment Row - Edit Mode */}
+                          <div className="grid grid-cols-1 gap-6 mt-6">
+                            <div className="space-y-3">
+                              <div>
+                                <div
+                                  className="text-foreground mb-3"
+                                  style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-semibold)' }}
+                                >
+                                  Attached to Resource Request
+                                </div>
+                                <Input
+                                  type="text"
+                                  value={editedResource.attachedToResourceRequest || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, attachedToResourceRequest: e.target.value })}
+                                  placeholder="Enter resource request..."
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                              <div>
+                                <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  Requested Reporting Datetime
+                                </div>
+                                <Input
+                                  type="datetime-local"
+                                  value={editedResource.requestedReportingDatetime || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, requestedReportingDatetime: e.target.value })}
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                              <div>
+                                <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  Requested Demobilization Datetime
+                                </div>
+                                <Input
+                                  type="datetime-local"
+                                  value={editedResource.requestedDemobilizationDatetime || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, requestedDemobilizationDatetime: e.target.value })}
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Work Assignment List Attachment Row - Edit Mode */}
+                          <div className="grid grid-cols-1 gap-6 mt-6">
+                            <div className="space-y-3">
+                              <div>
+                                <div
+                                  className="text-foreground mb-3"
+                                  style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-semibold)' }}
+                                >
+                                  Attached to Resource Request
+                                </div>
+                                <Input
+                                  type="text"
+                                  value={editedResource.attachedToResourceRequest || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, attachedToResourceRequest: e.target.value })}
+                                  placeholder="Enter resource request..."
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                              <div>
+                                <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  Requested Reporting Datetime
+                                </div>
+                                <Input
+                                  type="datetime-local"
+                                  value={editedResource.requestedReportingDatetime || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, requestedReportingDatetime: e.target.value })}
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                              <div>
+                                <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  Requested Demobilization Datetime
+                                </div>
+                                <Input
+                                  type="datetime-local"
+                                  value={editedResource.requestedDemobilizationDatetime || ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, requestedDemobilizationDatetime: e.target.value })}
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -6674,8 +6927,8 @@ export function IncidentResources() {
                               <div className="space-y-4">
                                 <div>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Current Op Period
                                   </div>
@@ -6690,8 +6943,8 @@ export function IncidentResources() {
                                 </div>
                                 <div>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Current Op Period Assignment
                                   </div>
@@ -6708,8 +6961,8 @@ export function IncidentResources() {
                               <div className="space-y-4" style={{ marginLeft: '-200px' }}>
                                 <div>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Next Op Period
                                   </div>
@@ -6724,8 +6977,8 @@ export function IncidentResources() {
                                 </div>
                                 <div>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Next Op Period Assignment
                                   </div>
@@ -6740,100 +6993,55 @@ export function IncidentResources() {
                                 </div>
                               </div>
                               {resource.id !== 'rul-001' && (
-                                <div style={{ marginLeft: '-400px' }}>
-                                  <div className="flex gap-0 border border-border" style={{ borderRadius: 'var(--radius)', overflow: 'hidden', width: '50%' }}>
-                                    <button
-                                      onClick={() => {
-                                        setResources(resources.map(r => 
-                                          r.id === resource.id ? { ...r, checkInStatus: 'not-checked-in' } : r
-                                        ));
-                                      }}
-                                      className={resource.checkInStatus !== 'checked-in'
-                                        ? 'flex-1 px-4 py-2 bg-slate-700 text-primary-foreground hover:bg-slate-600 whitespace-normal border-l-2 border-t-2 border-b-2 border-r-2 border-white'
-                                        : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 border-r border-border whitespace-normal'}
-                                      style={{ fontSize: 'var(--text-sm)' }}
-                                    >
-                                      Checked-Out of Incident: Boston Harbor Oil Spill Response
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setResources(resources.map(r => 
+                                <div style={{ marginLeft: '-400px' }} className="space-y-1">
+                                  <div
+                                    className="text-foreground"
+                                    style={{ fontSize: 'var(--text-sm)' }}
+                                  >
+                                    Check-In Status
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                  <div
+                                    className={`px-4 py-2 rounded-md font-medium whitespace-nowrap ${
+                                      resource.checkInStatus === 'checked-in' ? 'bg-status-success text-black' :
+                                      resource.checkInStatus === 'not-checked-in' ? 'bg-slate-700 text-primary-foreground' :
+                                      'bg-slate-700 text-primary-foreground'
+                                    }`}
+                                    style={{ fontSize: 'var(--text-sm)' }}
+                                  >
+                                    {resource.checkInStatus === 'checked-in' ? 'Checked-In' : resource.checkInStatus === 'not-checked-in' ? 'Demobilized' : 'Not Arrived'}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-border text-foreground hover:bg-muted/10"
+                                    style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                    onClick={() => {
+                                      if (resource.checkInStatus === 'checked-in') {
+                                        setIcs221ModalOpen(true);
+                                      } else {
+                                        setResources(resources.map(r =>
                                           r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
                                         ));
-                                      }}
-                                      className={resource.checkInStatus === 'checked-in'
-                                        ? 'flex-1 px-4 py-2 bg-status-success hover:bg-status-success/90 whitespace-normal border-l-2 border-r-2 border-t-2 border-b-2 border-white'
-                                        : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 whitespace-normal'}
-                                      style={{ fontSize: 'var(--text-sm)', color: resource.checkInStatus === 'checked-in' ? '#000000' : undefined }}
-                                    >
-                                      Checked-In to Incident: Boston Harbor Oil Spill Response
-                                    </button>
+                                      }
+                                    }}
+                                  >
+                                    {resource.checkInStatus === 'checked-in' ? 'Demobilize' : 'Check-In'}
+                                  </Button>
                                   </div>
                                 </div>
                               )}
-                            </div>
-                          </div>
-
-                          {/* Work Assignment List Attachment Row - Edit Mode */}
-                          <div className="grid grid-cols-1 gap-6 mt-6">
-                            <div className="space-y-3">
-                              <div>
-                                <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
-                                >
-                                  Attached to Resource Request
-                                </div>
-                                <Input
-                                  type="text"
-                                  value={editedResource.attachedToResourceRequest || ''}
-                                  onChange={(e) => setEditedResource({ ...editedResource, attachedToResourceRequest: e.target.value })}
-                                  placeholder="Enter resource request..."
-                                  className="bg-input-background border-border text-foreground"
-                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                                />
-                              </div>
-                              <div>
-                                <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
-                                >
-                                  Requested Reporting Datetime
-                                </div>
-                                <Input
-                                  type="datetime-local"
-                                  value={editedResource.requestedReportingDatetime || ''}
-                                  onChange={(e) => setEditedResource({ ...editedResource, requestedReportingDatetime: e.target.value })}
-                                  className="bg-input-background border-border text-foreground"
-                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                                />
-                              </div>
-                              <div>
-                                <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
-                                >
-                                  Requested Demobilization Datetime
-                                </div>
-                                <Input
-                                  type="datetime-local"
-                                  value={editedResource.requestedDemobilizationDatetime || ''}
-                                  onChange={(e) => setEditedResource({ ...editedResource, requestedDemobilizationDatetime: e.target.value })}
-                                  className="bg-input-background border-border text-foreground"
-                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                                />
-                              </div>
                             </div>
                           </div>
                         </>
                       ) : (
                         /* View Mode - Display Only */
                         <>
-                          <div className={resource.id === 'rul-001' ? 'grid gap-6' : 'grid grid-cols-4 gap-6'} style={resource.id === 'rul-001' ? { gridTemplateColumns: '2fr 1fr 1fr 1fr' } : {}}>
-                          {/* Assignee - Only for Incident Commander and Resource Unit Leader */}
+                          <div className="grid gap-4 gap-y-6" style={{ gridTemplateColumns: viewMode === 'assigned' ? '0.9fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr' : '0.9fr 0.6fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
+                          {/* Assignee - Col 1 (Resource Name) - Only for Incident Commander and Resource Unit Leader */}
                           {(resource.id === 'ic-001' || resource.id === 'rul-001') && (
-                            <>
-                              <div>
+                            <div style={{ display: 'contents' }}>
+                              <div style={{ gridColumn: 1 }}>
                                 {resource.id === 'rul-001' ? (
                                   <div style={{ fontSize: 'var(--text-sm)' }}>
                                     <div className="flex gap-4 mb-1">
@@ -6863,44 +7071,35 @@ export function IncidentResources() {
                                   </div>
                                 ) : (
                                   <>
-                                    <div 
-                                      className="text-foreground mb-1" 
-                                      style={{ fontSize: 'var(--text-xs)' }}
-                                    >
+                                    <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-sm)' }}>
                                       Assignee
                                     </div>
-                                    <div 
-                                      className="text-card-foreground" 
-                                      style={{ fontSize: 'var(--text-sm)' }}
-                                    >
+                                    <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
                                       {resource.assignee || 'CAPT John Smith'}
                                     </div>
                                   </>
                                 )}
                               </div>
-                              <div>
-                                <div 
-                                  className="text-foreground mb-1" 
-                                  style={{ fontSize: 'var(--text-xs)' }}
-                                >
+                              <div style={{ gridColumn: 2 }}>
+                                <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-sm)' }}>
                                   Linked Incident Roster Position
                                 </div>
-                                <div 
-                                  className="text-card-foreground cursor-pointer hover:underline" 
+                                <div
+                                  className="text-card-foreground cursor-pointer hover:underline"
                                   style={{ fontSize: 'var(--text-sm)' }}
                                   onClick={() => setRosterPositionModalOpen(true)}
                                 >
                                   {resource.linkedIncidentRosterPosition || 'Incident Commander'}
                                 </div>
                               </div>
-                            </>
+                            </div>
                           )}
 
-                          {/* Current Location */}
-                          <div>
+                          {/* Current Location - Col 3 (Type) or Col 1 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 3 : 1 }}>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Current Location
                             </div>
@@ -6914,11 +7113,11 @@ export function IncidentResources() {
                             </div>
                           </div>
 
-                          {/* Datetime Ordered */}
-                          <div>
+                          {/* Datetime Ordered - Col 4 (AOR) or Col 2 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 4 : 2 }}>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Datetime Ordered
                             </div>
@@ -6940,11 +7139,11 @@ export function IncidentResources() {
                             </div>
                           </div>
 
-                          {/* Point of Contact */}
-                          <div>
+                          {/* Point of Contact - Col 5 (Incident) or Col 3 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 5 : 3 }}>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Point of Contact
                             </div>
@@ -6959,11 +7158,11 @@ export function IncidentResources() {
                             </div>
                           </div>
 
-                          {/* Owner */}
-                          <div>
+                          {/* Owner - Col 6 (Current Work Availability) or Col 4 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 6 : 4 }}>
                             <div 
-                              className="text-foreground mb-1" 
-                              style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                             >
                               Owner
                             </div>
@@ -6974,14 +7173,78 @@ export function IncidentResources() {
                               {resource.owner || '-'}
                             </div>
                           </div>
+
+                          {/* Owning Unit - Col 7 (Request Status) or Col 5 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 7 : 5 }}>
+                            <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              Owning Unit
+                            </div>
+                            <div 
+                              className="text-card-foreground" 
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              {resource.owningUnit || '-'}
+                            </div>
+                          </div>
+
+                          {/* Persons on Board - Row 2 Col 1 or Col 6 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 1 : 6, gridRow: 2 }}>
+                            <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              Persons on Board
+                            </div>
+                            <div 
+                              className="text-card-foreground" 
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              {resource.personsOnBoard || '-'}
+                            </div>
+                          </div>
+
+                          {/* Quantity - Row 2 Col 2 or Col 7 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 2 : 7, gridRow: 2 }}>
+                            <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              Quantity
+                            </div>
+                            <div 
+                              className="text-card-foreground" 
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              {resource.quantity ?? '-'}
+                            </div>
+                          </div>
+
+                          {/* Hull or Tail Number - Row 2 Col 3 or Row 2 Col 1 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 3 : 1, gridRow: 2 }}>
+                            <div 
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              Hull or Tail Number
+                            </div>
+                            <div 
+                              className="text-card-foreground" 
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              {resource.hullOrTailNumber || '-'}
+                            </div>
+                          </div>
                           </div>
 
                           {/* Capabilities Row - View Mode */}
                           <div className="grid grid-cols-1 gap-6 mt-6">
                             <div>
                               <div 
-                                className="text-foreground mb-1" 
-                                style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                               >
                                 Capabilities
                               </div>
@@ -7008,6 +7271,31 @@ export function IncidentResources() {
                             </div>
                           </div>
 
+                          {/* Work Assignment List Attachment Row - View Mode */}
+                          <div className="grid grid-cols-1 gap-6 mt-6">
+                            <div>
+                                <div
+                                  className="text-foreground mb-3"
+                                  style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-semibold)' }}
+                                >
+                                  Attached to Resource Request
+                                </div>
+                              <div 
+                                className="text-card-foreground space-y-1 border border-white p-3" 
+                                style={{ fontSize: 'var(--text-sm)', borderRadius: 'var(--radius)', maxWidth: '25%' }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span>{resource.attachedToResourceRequest || 'Helicopter Request: RESL Review'}</span>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-foreground hover:bg-muted/20" style={{ borderRadius: 'var(--radius)' }}>
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                                <div>Requested Reporting Datetime: {resource.requestedReportingDatetime || '10/24/2025 14:00 UTC'}</div>
+                                <div>Requested Demobilization Datetime: {resource.requestedDemobilizationDatetime || '10/26/2025 18:00 UTC'}</div>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* Boston Harbor Oil Spill Response Incident Details - View Mode */}
                           <div className="mt-6">
                             <div 
@@ -7020,8 +7308,8 @@ export function IncidentResources() {
                               <div className="space-y-4">
                                 <div>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Current Op Period
                                   </div>
@@ -7034,8 +7322,8 @@ export function IncidentResources() {
                                 </div>
                                 <div>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Current Op Period Assignment
                                   </div>
@@ -7050,8 +7338,8 @@ export function IncidentResources() {
                               <div className="space-y-4" style={{ marginLeft: '-200px' }}>
                                 <div>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Next Op Period
                                   </div>
@@ -7064,79 +7352,82 @@ export function IncidentResources() {
                                 </div>
                                 <div>
                                   <div 
-                                    className="text-foreground mb-1" 
-                                    style={{ fontSize: 'var(--text-xs)' }}
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     Next Op Period Assignment
                                   </div>
                                   <div 
-                                    className="text-card-foreground" 
+                                    className="text-card-foreground flex items-center gap-1" 
                                     style={{ fontSize: 'var(--text-sm)' }}
                                   >
                                     {resource.nextOpPeriodAssignment || 'ICS-204: Division Alpha'}
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 shrink-0 text-foreground hover:bg-muted/20"
+                                      onClick={() => {}}
+                                      style={{ borderRadius: 'var(--radius)' }}
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </Button>
                                   </div>
                                 </div>
                               </div>
                               {resource.id !== 'rul-001' && (
-                                <div style={{ marginLeft: '-400px' }}>
-                                  <div className="flex gap-0 border border-border" style={{ borderRadius: 'var(--radius)', overflow: 'hidden', width: '50%' }}>
-                                    <button
-                                      onClick={() => {
-                                        setResources(resources.map(r => 
-                                          r.id === resource.id ? { ...r, checkInStatus: 'not-checked-in' } : r
-                                        ));
-                                      }}
-                                      className={resource.checkInStatus !== 'checked-in'
-                                        ? 'flex-1 px-4 py-2 bg-slate-700 text-primary-foreground hover:bg-slate-600 whitespace-normal border-l-2 border-t-2 border-b-2 border-r-2 border-white'
-                                        : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 border-r border-border whitespace-normal'}
-                                      style={{ fontSize: 'var(--text-sm)' }}
-                                    >
-                                      Checked-Out of Incident: Boston Harbor Oil Spill Response
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setResources(resources.map(r => 
+                                <div style={{ marginLeft: '-400px' }} className="space-y-1">
+                                  <div
+                                    className="text-foreground"
+                                    style={{ fontSize: 'var(--text-sm)' }}
+                                  >
+                                    Check-In Status
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                  <span
+                                    className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium ${
+                                      resource.checkInStatus === 'checked-in'
+                                        ? 'bg-status-success text-black'
+                                        : resource.checkInStatus === 'not-checked-in'
+                                        ? 'bg-slate-700 text-primary-foreground'
+                                        : 'bg-slate-700 text-primary-foreground'
+                                    }`}
+                                    style={{ fontSize: 'var(--text-sm)' }}
+                                  >
+                                    {resource.checkInStatus === 'checked-in'
+                                      ? 'Checked-In'
+                                      : resource.checkInStatus === 'not-checked-in'
+                                      ? 'Demobilized'
+                                      : 'Not Arrived'}
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-border text-foreground hover:bg-muted/10"
+                                    style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                    onClick={() => {
+                                      if (resource.checkInStatus === 'checked-in') {
+                                        setIcs221ModalOpen(true);
+                                      } else {
+                                        setResources(resources.map(r =>
                                           r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
                                         ));
-                                      }}
-                                      className={resource.checkInStatus === 'checked-in'
-                                        ? 'flex-1 px-4 py-2 bg-status-success hover:bg-status-success/90 whitespace-normal border-l-2 border-r-2 border-t-2 border-b-2 border-white'
-                                        : 'flex-1 px-4 py-2 bg-card text-foreground hover:bg-muted/10 whitespace-normal'}
-                                      style={{ fontSize: 'var(--text-sm)', color: resource.checkInStatus === 'checked-in' ? '#000000' : undefined }}
-                                    >
-                                      Checked-In to Incident: Boston Harbor Oil Spill Response
-                                    </button>
+                                      }
+                                    }}
+                                  >
+                                    {resource.checkInStatus === 'checked-in' ? 'Demobilize' : 'Check-In'}
+                                  </Button>
                                   </div>
                                 </div>
                               )}
                             </div>
                           </div>
-
-                          {/* Work Assignment List Attachment Row - View Mode */}
-                          <div className="grid grid-cols-1 gap-6 mt-6">
-                            <div>
-                              <div 
-                                className="text-foreground mb-1" 
-                                style={{ fontSize: 'var(--text-xs)' }}
-                              >
-                                Attached to Resource Request
-                              </div>
-                              <div 
-                                className="text-card-foreground space-y-1 border border-white p-3" 
-                                style={{ fontSize: 'var(--text-sm)', borderRadius: 'var(--radius)' }}
-                              >
-                                <div>{resource.attachedToResourceRequest || 'Helicopter Request: RESL Review'}</div>
-                                <div>Requested Reporting Datetime: {resource.requestedReportingDatetime || '10/24/2025 14:00 UTC'}</div>
-                                <div>Requested Demobilization Datetime: {resource.requestedDemobilizationDatetime || '10/26/2025 18:00 UTC'}</div>
-                              </div>
-                            </div>
-                          </div>
                         </>
                       )}
-                    </>
-                  )}
-                </div>
-              )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
               {/* Save/Cancel buttons for edit mode - positioned after all inputs including expanded content */}
               {editingResourceId === resource.id && (
@@ -7162,6 +7453,73 @@ export function IncidentResources() {
           ))
         }
       </div>
+
+      {/* ICS 204 Placeholder Modal */}
+      <Dialog open={ics204ModalOpen} onOpenChange={setIcs204ModalOpen}>
+        <DialogContent className="bg-card border-border max-w-2xl" style={{ borderRadius: 'var(--radius)' }}>
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground" style={{ fontSize: 'var(--text-lg)' }}>
+              ICS 204
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+              Placeholder for ICS 204 assignment list
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 text-muted-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+            ICS 204 form content placeholder
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ICS 213RR Placeholder Modal */}
+      <Dialog open={ics213rrModalOpen} onOpenChange={setIcs213rrModalOpen}>
+        <DialogContent className="bg-card border-border max-w-2xl" style={{ borderRadius: 'var(--radius)' }}>
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground" style={{ fontSize: 'var(--text-lg)' }}>
+              ICS 213RR
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+              Placeholder for ICS 213RR resource request
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 text-muted-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+            ICS 213RR form content placeholder
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ICS 221 Placeholder Modal */}
+      <Dialog open={ics221ModalOpen} onOpenChange={setIcs221ModalOpen}>
+        <DialogContent className="bg-card border-border max-w-2xl" style={{ borderRadius: 'var(--radius)' }}>
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground" style={{ fontSize: 'var(--text-lg)' }}>
+              ICS 221
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+              Placeholder for ICS 221
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 text-muted-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+            Placeholder for ICS 221
+          </div>
+          <div className="flex gap-2 justify-start">
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+            >
+              Submit Demobilization Request
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIcs221ModalOpen(false)}
+              className="bg-card border-border text-foreground hover:bg-muted/10"
+              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Resource Details Modal */}
       <Dialog open={selectedItem !== null} onOpenChange={(open) => !open && setSelectedItem(null)}>
