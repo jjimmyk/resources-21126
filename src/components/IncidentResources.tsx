@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Trash2, Pencil, Map, ChevronDown, ChevronRight, Search, X, Filter, FileText, Sparkles, ExternalLink } from 'lucide-react';
+import { Trash2, Pencil, Map, ChevronDown, ChevronRight, Search, X, Filter, FileText, Sparkles, ExternalLink, Plane, Ship, Users, Wrench } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -104,6 +104,7 @@ interface Resource {
   owningUnit?: string;
   personsOnBoard?: string;
   hullOrTailNumber?: string;
+  tacon?: string;
   requestStatus?: string;
   latitude?: string;
   longitude?: string;
@@ -111,9 +112,9 @@ interface Resource {
   attachedToResourceRequest?: string;
   requestedReportingDatetime?: string;
   requestedDemobilizationDatetime?: string;
-  assignee?: string;
+  assignee?: string | null;
   signInStatus?: string;
-  linkedIncidentRosterPosition?: string;
+  linkedIncidentRosterPosition?: string | null;
   currentOpPeriod?: string;
   nextOpPeriod?: string;
   currentOpPeriodAssignment?: string;
@@ -405,6 +406,111 @@ const WORK_ASSIGNMENT_DETAILS: Record<string, {
   }
 };
 
+const getPlausibleResourceName = (request: ResourceRequest, index: number): string => {
+  const type = (request.type || '').toLowerCase();
+  const kind = (request.kind || '').toLowerCase();
+
+  if (type.includes('aircraft') || kind.includes('helicopter')) {
+    return 'CG-6031 MH-60 Jayhawk';
+  }
+  if (type.includes('vessel') || kind.includes('cutter')) {
+    return 'USCGC Point Ledge';
+  }
+  if (type.includes('boat') || kind.includes('response boat')) {
+    return 'RBM-45624';
+  }
+  if (type.includes('personnel') || kind.includes('team')) {
+    return 'IMAT Team Alpha';
+  }
+  if (type.includes('equipment')) {
+    return 'Portable Dewatering Pump';
+  }
+  if (type.includes('support')) {
+    return 'MSD Hampton Roads';
+  }
+
+  return `Resource Unit ${index + 1}`;
+};
+
+const REQUESTED_RESOURCE_NAME_BY_ID: Record<string, string> = {
+  'req-1-1': 'CG-6030 MH-60 Jayhawk',
+  'req-1-2': 'CG-6031 MH-60 Jayhawk',
+  'req-2-1': 'USCGC Charles Moulthrope',
+  'req-3-1': 'USCGC Point Ledge',
+  'req-3-2': 'RBM-45624',
+  'req-3-3': 'IMAT Team Alpha',
+};
+
+const getRequestedResourceDisplayLabel = (
+  request: ResourceRequest,
+  index: number,
+  requestName?: string,
+): string => {
+  const normalizedRequestName = (requestName || '').toLowerCase();
+  const isExceptionRequest =
+    normalizedRequestName === 'helicopter request' || normalizedRequestName === 'requesting cutter';
+
+  if (isExceptionRequest && index === 0) {
+    return 'id-1-1 - CG-6030 MH-60 Jayhawk';
+  }
+
+  const idDisplay = request.id.replace(/^req-/, 'id-');
+  const uniqueName =
+    REQUESTED_RESOURCE_NAME_BY_ID[request.id] ||
+    `${getPlausibleResourceName(request, index)} ${idDisplay}`;
+
+  return `${idDisplay} - ${uniqueName}`;
+};
+
+const shouldShowMultiIncidentIndicator = (requestName?: string, index?: number): boolean => {
+  const normalizedRequestName = (requestName || '').toLowerCase().trim();
+  const isSharedResourceRequest =
+    normalizedRequestName === 'helicopter request' || normalizedRequestName === 'requesting cutter';
+
+  return isSharedResourceRequest && index === 0;
+};
+
+const getMissionCapableStatus = (
+  resourceId?: string,
+  checkInStatus?: Resource['checkInStatus'],
+  resourceName?: string,
+): 'FMC' | 'PMC' | 'NMC' | 'NMCM' | 'NCMS' | 'NMCD' => {
+  if (resourceName === 'Resource Unit Leader') return 'PMC';
+  if (resourceName === 'Helicopter Request') return 'NMC';
+  if (resourceName === 'Requesting Cutter') return 'NMCM';
+  if (resourceName === 'Marine Safety Detachment') return 'NCMS';
+  if (resourceName === 'Cutter Vessel Bravo') return 'NMCD';
+  if (resourceId === 'ic-001' || resourceId === 'rul-001') return 'FMC';
+  if (checkInStatus === 'checked-in') return 'FMC';
+  if (checkInStatus === 'not-checked-in') return 'PMC';
+  return 'NMC';
+};
+
+const renderMissionCapableStatus = (
+  resourceId?: string,
+  checkInStatus?: Resource['checkInStatus'],
+  resourceName?: string,
+  datetimeOrdered?: string,
+  datetimeOrderedTimezone?: string,
+) => {
+  const status = getMissionCapableStatus(resourceId, checkInStatus, resourceName);
+  const triangle = status === 'FMC' ? '▲' : status === 'PMC' ? '▶' : '▼';
+  const triangleColor = status === 'FMC' ? '#22c55e' : status === 'PMC' ? '#facc15' : '#ef4444';
+  const statusTimestamp = datetimeOrdered
+    ? formatDateTimeMilitary(datetimeOrdered, 'EST')
+    : '03/19/2026 14:30 EST';
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span>{status}</span>
+      <span style={{ color: triangleColor, fontSize: 'var(--text-xs)', lineHeight: 1 }}>{triangle}</span>
+      <span className="text-white" style={{ fontSize: 'var(--text-xs)' }}>
+        {statusTimestamp}
+      </span>
+    </div>
+  );
+};
+
 const KIND_OPTIONS = [
   'Personnel',
   'Equipment',
@@ -442,6 +548,28 @@ const getCheckInStatusColor = (status: Resource['checkInStatus']) => {
     default:
       return 'text-card-foreground';
   }
+};
+
+const getSymbologyIcon = (resource: Resource) => {
+  const normalized = `${resource.kind || ''} ${resource.type || ''}`.toLowerCase();
+
+  if (normalized.includes('aircraft') || normalized.includes('helicopter')) {
+    return <Plane className="h-4 w-4 text-card-foreground" />;
+  }
+
+  if (normalized.includes('vessel') || normalized.includes('boat') || normalized.includes('cutter')) {
+    return <Ship className="h-4 w-4 text-card-foreground" />;
+  }
+
+  if (normalized.includes('personnel') || normalized.includes('team')) {
+    return <Users className="h-4 w-4 text-card-foreground" />;
+  }
+
+  if (normalized.includes('equipment') || normalized.includes('support')) {
+    return <Wrench className="h-4 w-4 text-card-foreground" />;
+  }
+
+  return <Map className="h-4 w-4 text-card-foreground" />;
 };
 
 const getRequestStatusStyle = (status: ResourceRequest['status']) => {
@@ -594,16 +722,16 @@ export function IncidentResources() {
   const [resources, setResources] = useState<Resource[]>([
     {
       id: 'ic-001',
-      resource: 'Incident Commander',
+      resource: 'MH-60 Alpha',
       checkInStatus: 'not-arrived',
       type: 'Personnel',
-      kind: 'Personnel',
+      kind: 'Equipment',
       unit: 'Sector Boston',
       poc: 'CDR John Mitchell',
       aor: 'District 1',
       incident: 'Boston Harbor Oil Spill Response',
-      assignee: 'CAPT John Smith',
-      linkedIncidentRosterPosition: 'Incident Commander',
+      assignee: null,
+      linkedIncidentRosterPosition: null,
       items: [],
       resourceRequests: [],
     },
@@ -1021,6 +1149,96 @@ export function IncidentResources() {
         },
       ],
     },
+    {
+      id: '72675',
+      resource: 'Cutter Vessel Bravo',
+      checkInStatus: 'not-arrived',
+      type: 'Type 2',
+      kind: 'facilities',
+      quantity: 1,
+      quantityOwned: 3,
+      unit: 'Sector Boston',
+      poc: 'BMC James Wilson',
+      aor: 'District 1',
+      incident: 'INC-2025-001',
+      workAssignment: 'Vessel Traffic Control - Boston Harbor',
+      requestRecipient: 'District 1 Command Center',
+      currentLocation: 'Boston Harbor, MA',
+      datetimeOrdered: '2025-11-08T06:15',
+      datetimeOrderedTimezone: 'EST',
+      owner: 'Sector',
+      items: [
+        {
+          id: '4-1',
+          ordered: '2025-10-23T08:00',
+          orderedTimezone: 'UTC',
+          eta: '2025-10-24T16:00',
+          etaTimezone: 'EST',
+          unit: 'Sector Boston',
+          poc: 'BMC James Wilson',
+          hullTailNumber: 'WPB-87345',
+          personsOnBoard: 'BMC Wilson, BM2 Taylor, MK3 Lee, SN Garcia',
+          phone: '(617) 555-0201',
+          aor: 'District 1',
+          status: 'in-transit',
+          geolocationX: '42.3601',
+          geolocationY: '-71.0589',
+          geolocationSource: 'GPS',
+        },
+        {
+          id: '4-2',
+          ordered: '2025-10-24T10:00',
+          orderedTimezone: 'EST',
+          eta: '2025-10-25T08:00',
+          etaTimezone: 'EST',
+          unit: 'Sector Boston',
+          poc: 'BM1 Jennifer Adams',
+          hullTailNumber: 'WPB-87346',
+          personsOnBoard: 'BM1 Adams, MK2 Brown, SN Martinez',
+          phone: '(617) 555-0202',
+          aor: 'District 1',
+          status: 'checked-out',
+          geolocationX: '42.3744',
+          geolocationY: '-71.0312',
+          geolocationSource: 'DGPS',
+        },
+      ],
+      resourceRequests: [
+        {
+          id: 'req-4-1',
+          priority: 'Critical',
+          orderId: 'ORD-2025-003',
+          reportingLocation: 'Sector Boston Dock 3',
+          reportingSite: 'Incident Command Post',
+          reportingTime: '2025-10-24T15:30',
+          reportingTimeTimezone: 'EST',
+          eta: '2025-10-24T16:00',
+          etaTimezone: 'EST',
+          ordered: '2025-10-23T08:00',
+          orderedTimezone: 'UTC',
+          cost: '8500',
+          requestRecipient: 'District 1 Command Center',
+          requestCreator: 'CDR Michael Thompson',
+          incident: 'INC-2025-002',
+          aor: 'District 1',
+          suggestedSourcesOfSupply: 'Sector Boston, Station Gloucester, Station Provincetown',
+          acceptableSubstitutes: 'Cutter - 110ft Patrol Boat, Cutter - 154ft Fast Response Cutter',
+          kind: 'Cutter',
+          type: 'Vessel',
+          unit: 'Sector Boston',
+          description: 'Medium endurance cutter for extended patrol operations and law enforcement boarding teams. Required for vessel traffic control and maritime security zone enforcement.',
+          status: 'pending-approval',
+          approvalSteps: {
+            requestResource: { status: 'completed', approver: 'CDR Michael Thompson', timestamp: '2025-10-23T08:00:00Z' },
+            sectionChief: { status: 'completed', approver: 'CAPT Robert Harris', comments: 'Approved for law enforcement', timestamp: '2025-10-23T09:00:00Z' },
+            reslReview: { status: 'completed', approver: 'CDR Patricia Lee', comments: 'Resource verified', timestamp: '2025-10-23T10:30:00Z' },
+            logistics: { status: 'pending', approver: undefined, timestamp: undefined },
+            finance: { status: 'pending', approver: undefined, timestamp: undefined },
+          },
+          currentApprovalStep: 'logistics',
+        },
+      ],
+    },
   ]);
 
   const [organizationalResources, setOrganizationalResources] = useState<OrganizationalResource[]>(ORGANIZATIONAL_RESOURCES);
@@ -1029,6 +1247,7 @@ export function IncidentResources() {
   const [expandedOrgResources, setExpandedOrgResources] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<ItemizedResource | null>(null);
+  const [selectedRequestedResource, setSelectedRequestedResource] = useState<{ name: string; request: ResourceRequest } | null>(null);
   const [viewMode, setViewMode] = useState<'assigned' | 'requests'>('assigned');
   const [workAssignmentModalOpen, setWorkAssignmentModalOpen] = useState(false);
   const [selectedWorkAssignment, setSelectedWorkAssignment] = useState<{
@@ -1242,10 +1461,50 @@ export function IncidentResources() {
   const [filterCheckInStatus, setFilterCheckInStatus] = useState<Set<string>>(new Set());
   const [filterIncidentStatus, setFilterIncidentStatus] = useState<Set<string>>(new Set());
   const [filterRequestStatus, setFilterRequestStatus] = useState<Set<string>>(new Set());
+  const [filterAssetStatus, setFilterAssetStatus] = useState<Set<string>>(new Set());
   const [rosterPositionModalOpen, setRosterPositionModalOpen] = useState(false);
   const [ics204ModalOpen, setIcs204ModalOpen] = useState(false);
   const [ics213rrModalOpen, setIcs213rrModalOpen] = useState(false);
   const [ics221ModalOpen, setIcs221ModalOpen] = useState(false);
+  const [activeDemobilizationResourceId, setActiveDemobilizationResourceId] = useState<string | null>(null);
+  const [submittedDemobilizationResourceIds, setSubmittedDemobilizationResourceIds] = useState<Set<string>>(new Set());
+  const [ics211CheckInModalOpen, setIcs211CheckInModalOpen] = useState(false);
+
+  const renderRequestedResourceListEntry = (item: ResourceRequest, index: number, requestName?: string) => (
+    <ul className="list-disc pl-4">
+      <li className="grid grid-cols-[minmax(0,26rem)_minmax(0,1fr)] items-center gap-3">
+        <div
+          className="flex items-center gap-2 min-w-0"
+          title={shouldShowMultiIncidentIndicator(requestName, index) ? 'This resource has been requested by multiple Incidents.' : undefined}
+        >
+          {shouldShowMultiIncidentIndicator(requestName, index) && (
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: '#facc15', border: '1px solid #facc15' }}
+              title="This resource has been requested by multiple Incidents."
+              aria-label="This resource has been requested by multiple Incidents."
+            />
+          )}
+          <button
+            type="button"
+            className="w-full truncate text-left text-white hover:underline focus-visible:outline-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRequestedResource({
+                name: getPlausibleResourceName(item, index),
+                request: item,
+              });
+            }}
+            aria-label="Open requested resource list item placeholder modal"
+            title={getRequestedResourceDisplayLabel(item, index, requestName)}
+          >
+            {getRequestedResourceDisplayLabel(item, index, requestName)}
+          </button>
+        </div>
+        <span className="text-white">Description: {item.description || '-'}</span>
+      </li>
+    </ul>
+  );
 
   const handleDeleteResource = (id: string) => {
     setResources(resources.filter((resource) => resource.id !== id));
@@ -1603,14 +1862,14 @@ export function IncidentResources() {
       const allIncidents = new Set<string>();
       const allRequestCreators = new Set<string>();
       const allRequestRecipients = new Set<string>();
-      const allRequestedItemsTypes = new Set<string>();
+      const allRequestedResourceItems = new Set<string>();
       
       resources.forEach(r => {
-        r.resourceRequests.forEach(req => {
+        r.resourceRequests.forEach((req, index) => {
           if (req.kind) {
             allKinds.add(req.kind);
-            allRequestedItemsTypes.add(req.kind);
           }
+          allRequestedResourceItems.add(getRequestedResourceDisplayLabel(req, index, r.resource));
           if (req.aor) allAors.add(req.aor);
           if (req.incident) allIncidents.add(req.incident);
           if (req.requestCreator) allRequestCreators.add(req.requestCreator);
@@ -1626,7 +1885,7 @@ export function IncidentResources() {
         incidents: Array.from(allIncidents).sort(), // Incidents
         workAssignments: Array.from(allRequestCreators).sort(), // Request Creators
         checkInStatuses: Array.from(allRequestRecipients).sort(), // Request Recipients
-        requestedItems: Array.from(allRequestedItemsTypes).sort(), // Requested Resources Types
+        requestedItems: Array.from(allRequestedResourceItems).sort(), // Requested Resources (ID + Name)
       };
     } else {
       // For resources mode
@@ -1639,6 +1898,9 @@ export function IncidentResources() {
         workAssignments: Array.from(new Set(resources.map(r => r.workAssignment || '-'))).sort(),
         checkInStatuses: Array.from(new Set(resources.map(r => r.checkInStatus))).sort(),
         incidentStatuses: Array.from(new Set(resources.map(r => r.inIncident ? (r.incident || 'In Incident') : 'no incident'))).sort(),
+        assetStatuses: Array.from(
+          new Set(resources.map(r => getMissionCapableStatus(r.id, r.checkInStatus, r.resource))),
+        ),
         requestedItems: [],
       };
     }
@@ -1651,16 +1913,20 @@ export function IncidentResources() {
       const matchesResource = filterResource.size === 0 || filterResource.has(resource.resource); // Request Name
       const matchesId = filterId.size === 0 || filterId.has(resource.id); // ID
       const matchesKind = filterType.size === 0 || resource.resourceRequests.some(req => req.kind && filterType.has(req.kind));
+      const matchesIncident = filterIncident.size === 0 || resource.resourceRequests.some(req => req.incident && filterIncident.has(req.incident));
       const matchesRequestCreator = filterWorkAssignment.size === 0 || resource.resourceRequests.some(req => req.requestCreator && filterWorkAssignment.has(req.requestCreator));
       const matchesRequestRecipient = filterCheckInStatus.size === 0 || resource.resourceRequests.some(req => req.requestRecipient && filterCheckInStatus.has(req.requestRecipient));
-      const matchesRequestedItems = filterRequestedItems.size === 0 || resource.resourceRequests.some(req => req.kind && filterRequestedItems.has(req.kind));
+      const matchesRequestedItems =
+        filterRequestedItems.size === 0 ||
+        resource.resourceRequests.some((req, index) =>
+          filterRequestedItems.has(getRequestedResourceDisplayLabel(req, index, resource.resource)),
+        );
       
-      return matchesResource && matchesId && matchesKind && matchesRequestCreator && matchesRequestRecipient && matchesRequestedItems;
+      return matchesResource && matchesId && matchesKind && matchesIncident && matchesRequestCreator && matchesRequestRecipient && matchesRequestedItems;
     } else {
       // For resources mode
       const matchesResource = filterResource.size === 0 || filterResource.has(resource.resource);
       const matchesId = filterId.size === 0 || filterId.has(resource.id);
-      const matchesType = filterType.size === 0 || filterType.has(resource.type);
       const matchesAor = filterAor.size === 0 || filterAor.has(resource.aor || '-');
       const matchesIncident = filterIncident.size === 0 || filterIncident.has(resource.incident || '-');
       const matchesWorkAssignment = filterWorkAssignment.size === 0 || filterWorkAssignment.has(resource.workAssignment || '-');
@@ -1673,8 +1939,10 @@ export function IncidentResources() {
           : 'Requested: RESL Review'
       );
       const matchesRequestStatus = filterRequestStatus.size === 0 || filterRequestStatus.has(requestStatusValue);
+      const assetStatusValue = getMissionCapableStatus(resource.id, resource.checkInStatus, resource.resource);
+      const matchesAssetStatus = filterAssetStatus.size === 0 || filterAssetStatus.has(assetStatusValue);
       
-      return matchesResource && matchesId && matchesType && matchesAor && matchesIncident && matchesWorkAssignment && matchesCheckInStatus && matchesIncidentStatus && matchesRequestStatus;
+      return matchesResource && matchesId && matchesAor && matchesIncident && matchesWorkAssignment && matchesCheckInStatus && matchesIncidentStatus && matchesRequestStatus && matchesAssetStatus;
     }
   });
 
@@ -2276,7 +2544,74 @@ export function IncidentResources() {
           <div className="w-8"></div>
           
           {/* Column Headers with Filters */}
-          <div className="flex-1 grid gap-4 justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
+          <div className="flex-1 grid gap-4 justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' }}>
+            {/* ID Filter - Only for resources view */}
+            {viewMode === 'assigned' && (
+            <div className="flex flex-col gap-2">
+              <div className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+                ID
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-8 justify-between bg-input-background border-border text-foreground hover:bg-muted/10"
+                    style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                  >
+                    <span className="truncate">
+                      {filterId.size === 0 ? 'All' : `${filterId.size} selected`}
+                    </span>
+                    <Filter className="ml-2 h-3 w-3 text-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-56 p-0 bg-popover border-border"
+                  style={{ borderRadius: 'var(--radius)' }}
+                  align="start"
+                >
+                  <div className="p-2 border-b border-border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+                        Filter by ID
+                      </span>
+                      {filterId.size > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFilterId(new Set())}
+                          className="h-6 px-2 text-muted-foreground hover:text-foreground"
+                          style={{ fontSize: 'var(--text-xs)' }}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <ScrollArea className="h-64">
+                    <div className="p-2">
+                      {uniqueValues.ids.map((value) => (
+                        <div key={value} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/10 cursor-pointer" style={{ borderRadius: 'var(--radius)' }}>
+                          <Checkbox
+                            checked={filterId.has(value)}
+                            onCheckedChange={() => toggleFilter(filterId, setFilterId, value)}
+                            className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                          <label
+                            className="flex-1 cursor-pointer text-foreground"
+                            style={{ fontSize: 'var(--text-sm)' }}
+                            onClick={() => toggleFilter(filterId, setFilterId, value)}
+                          >
+                            {value}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+            </div>
+            )}
+
             {/* Resource/Request Name Filter */}
             <div className="flex flex-col gap-2">
               <div className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
@@ -2341,6 +2676,71 @@ export function IncidentResources() {
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Incident Filter */}
+            {viewMode === 'requests' && (
+            <div className="flex flex-col gap-2">
+              <div className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+                Incident
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-8 justify-between bg-input-background border-border text-foreground hover:bg-muted/10"
+                    style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                  >
+                    <span className="truncate">
+                      {filterIncident.size === 0 ? 'All' : `${filterIncident.size} selected`}
+                    </span>
+                    <Filter className="ml-2 h-3 w-3 text-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-56 p-0 bg-popover border-border"
+                  style={{ borderRadius: 'var(--radius)' }}
+                  align="start"
+                >
+                  <div className="p-2 border-b border-border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>Filter by Incident</span>
+                      {filterIncident.size > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFilterIncident(new Set())}
+                          className="h-6 px-2 text-muted-foreground hover:text-foreground"
+                          style={{ fontSize: 'var(--text-xs)' }}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <ScrollArea className="h-64">
+                    <div className="p-2">
+                      {uniqueValues.incidents.map((value) => (
+                        <div key={value} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/10 cursor-pointer" style={{ borderRadius: 'var(--radius)' }}>
+                          <Checkbox
+                            checked={filterIncident.has(value)}
+                            onCheckedChange={() => toggleFilter(filterIncident, setFilterIncident, value)}
+                            className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                          <label
+                            className="flex-1 cursor-pointer text-foreground"
+                            style={{ fontSize: 'var(--text-sm)' }}
+                            onClick={() => toggleFilter(filterIncident, setFilterIncident, value)}
+                          >
+                            {value}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+            </div>
+            )}
 
             {/* Submitted By Filter */}
             {viewMode === 'requests' && (
@@ -2441,73 +2841,6 @@ export function IncidentResources() {
                   <ScrollArea className="h-64">
                     <div className="p-2">
                       <div className="text-muted-foreground p-2" style={{ fontSize: 'var(--text-sm)' }}>No filters available</div>
-                    </div>
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
-            </div>
-            )}
-
-            {/* Type/Kinds Filter */}
-            {viewMode !== 'requests' && (
-            <div className="flex flex-col gap-2">
-              <div className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
-                Type
-              </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-8 justify-between bg-input-background border-border text-foreground hover:bg-muted/10"
-                    style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                  >
-                    <span className="truncate">
-                      {filterType.size === 0 ? 'All' : `${filterType.size} selected`}
-                    </span>
-                    <Filter className="ml-2 h-3 w-3 text-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent 
-                  className="w-56 p-0 bg-popover border-border" 
-                  style={{ borderRadius: 'var(--radius)' }}
-                  align="start"
-                >
-                  <div className="p-2 border-b border-border">
-                    <div className="flex items-center justify-between">
-                      <span className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
-                        Filter by Type
-                      </span>
-                      {filterType.size > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setFilterType(new Set())}
-                          className="h-6 px-2 text-muted-foreground hover:text-foreground"
-                          style={{ fontSize: 'var(--text-xs)' }}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <ScrollArea className="h-64">
-                    <div className="p-2">
-                      {uniqueValues.types.map((value) => (
-                        <div key={value} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/10 cursor-pointer" style={{ borderRadius: 'var(--radius)' }}>
-                          <Checkbox
-                            checked={filterType.has(value)}
-                            onCheckedChange={() => toggleFilter(filterType, setFilterType, value)}
-                            className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                          />
-                          <label 
-                            className="flex-1 cursor-pointer text-foreground" 
-                            style={{ fontSize: 'var(--text-sm)' }}
-                            onClick={() => toggleFilter(filterType, setFilterType, value)}
-                          >
-                            {value}
-                          </label>
-                        </div>
-                      ))}
                     </div>
                   </ScrollArea>
                 </PopoverContent>
@@ -2901,6 +3234,72 @@ export function IncidentResources() {
                             className="flex-1 cursor-pointer text-foreground" 
                             style={{ fontSize: 'var(--text-sm)' }}
                             onClick={() => toggleFilter(filterRequestStatus, setFilterRequestStatus, value)}
+                          >
+                            {value}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+            </div>
+            )}
+
+            {viewMode !== 'requests' && viewMode !== 'all' && (
+            <div className="flex flex-col gap-2">
+              <div className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+                Asset Status
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-8 justify-between bg-input-background border-border text-foreground hover:bg-muted/10"
+                    style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                  >
+                    <span className="truncate">
+                      {filterAssetStatus.size === 0 ? 'All' : `${filterAssetStatus.size} selected`}
+                    </span>
+                    <Filter className="ml-2 h-3 w-3 text-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-56 p-0 bg-popover border-border" 
+                  style={{ borderRadius: 'var(--radius)' }}
+                  align="start"
+                >
+                  <div className="p-2 border-b border-border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+                        Filter by Asset Status
+                      </span>
+                      {filterAssetStatus.size > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFilterAssetStatus(new Set())}
+                          className="h-6 px-2 text-muted-foreground hover:text-foreground"
+                          style={{ fontSize: 'var(--text-xs)' }}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <ScrollArea className="h-64">
+                    <div className="p-2">
+                      {uniqueValues.assetStatuses?.map((value) => (
+                        <div key={value} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/10 cursor-pointer" style={{ borderRadius: 'var(--radius)' }}>
+                          <Checkbox
+                            checked={filterAssetStatus.has(value)}
+                            onCheckedChange={() => toggleFilter(filterAssetStatus, setFilterAssetStatus, value)}
+                            className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                          <label
+                            className="flex-1 cursor-pointer text-foreground"
+                            style={{ fontSize: 'var(--text-sm)' }}
+                            onClick={() => toggleFilter(filterAssetStatus, setFilterAssetStatus, value)}
                           >
                             {value}
                           </label>
@@ -3429,7 +3828,7 @@ className="text-foreground mb-1"
 
                   {editingResourceId === resource.id ? (
                     /* Edit Mode */
-                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : viewMode === 'assigned' ? 'minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' : 'minmax(0, 0.9fr) minmax(0, 0.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
+                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : viewMode === 'assigned' ? 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' : 'minmax(0, 0.9fr) minmax(0, 0.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
                       {/* Check if this is a new resource request (add state) */}
                       {viewMode === 'requests' && resource.id.startsWith('req-new-') ? (
                         /* Add State - Show Request Name Input */
@@ -3443,6 +3842,9 @@ className="text-foreground mb-1"
                             style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
                             autoFocus
                           />
+                          <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
+                            {resource.resourceRequests?.[0]?.incident || resource.incident || '-'}
+                          </div>
                           <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
                             {resource.resourceRequests?.[0]?.requestCreator || 'Current User'}
                           </div>
@@ -3485,20 +3887,11 @@ className="text-foreground mb-1"
                             {(() => {
                               const items = editedResource.resourceItems || [];
                               if (items.length === 0) return <div>-</div>;
-                              
-                              // Format: Quantity: [value], Kind: [value], Type: [value], Priority: [value]
-                              // Description: [value] (on its own line)
+
                               return items.map((item, index) => {
-                                const parts = [];
-                                if (item.quantity) parts.push(`Quantity: ${item.quantity}`);
-                                if (item.kind) parts.push(`Kind: ${item.kind}`);
-                                if (item.type) parts.push(`Type: ${item.type}`);
-                                if (item.priority) parts.push(`Priority: ${item.priority}`);
-                                
                                 return (
                                   <div key={index} className={index > 0 ? 'pt-2 border-t border-white/20' : ''}>
-                                    <div>{parts.join(', ')}</div>
-                                    {item.description && <div>Description: {item.description}</div>}
+                                    {renderRequestedResourceListEntry(item, index, editedResource.resource || resource.resource)}
                                   </div>
                                 );
                               });
@@ -3508,6 +3901,11 @@ className="text-foreground mb-1"
                       ) : (
                         /* Edit State - Show Original Fields */
                         <>
+                      {viewMode === 'assigned' && (
+                      <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
+                        {editedResource.id || resource.id || '-'}
+                      </div>
+                      )}
                       <div className="relative">
                         {isAddingNewResource ? (
                           <div className="flex gap-1">
@@ -3573,6 +3971,9 @@ className="text-foreground mb-1"
                       {viewMode === 'requests' && (
                       <>
                       <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
+                        {resource.resourceRequests?.[0]?.incident || resource.incident || '-'}
+                      </div>
+                      <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
                         {resource.resourceRequests?.[0]?.requestCreator || 'Current User'}
                       </div>
                       <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
@@ -3601,20 +4002,11 @@ className="text-foreground mb-1"
                         {(() => {
                           const items = editedResource.resourceItems || [];
                           if (items.length === 0) return <div>-</div>;
-                          
-                          // Format: Quantity: [value], Kind: [value], Type: [value], Priority: [value]
-                          // Description: [value] (on its own line)
+
                           return items.map((item, index) => {
-                            const parts = [];
-                            if (item.quantity) parts.push(`Quantity: ${item.quantity}`);
-                            if (item.kind) parts.push(`Kind: ${item.kind}`);
-                            if (item.type) parts.push(`Type: ${item.type}`);
-                            if (item.priority) parts.push(`Priority: ${item.priority}`);
-                            
                             return (
                               <div key={index} className={index > 0 ? 'pt-2 border-t border-white/20' : ''}>
-                                <div>{parts.join(', ')}</div>
-                                {item.description && <div>Description: {item.description}</div>}
+                                {renderRequestedResourceListEntry(item, index, editedResource.resource || resource.resource)}
                               </div>
                             );
                           });
@@ -3634,70 +4026,6 @@ className="text-foreground mb-1"
                           <option key={option} value={option}>{option}</option>
                         ))}
                       </select>
-                      )}
-                      {viewMode !== 'requests' && (
-                      <div className="relative">
-                        {isAddingNewType ? (
-                          <div className="flex gap-1">
-                            <Input
-                              type="text"
-                              placeholder="Enter new type"
-                              value={newTypeName}
-                              onChange={(e) => setNewTypeName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleAddNewType();
-                                } else if (e.key === 'Escape') {
-                                  setIsAddingNewType(false);
-                                  setNewTypeName('');
-                                }
-                              }}
-                              className="bg-input-background border-border text-foreground flex-1"
-                              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                              autoFocus
-                            />
-                            <Button
-                              size="sm"
-                              onClick={handleAddNewType}
-                              className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-2"
-                              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                            >
-                              ✓
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setIsAddingNewType(false);
-                                setNewTypeName('');
-                              }}
-                              className="bg-card border-border text-foreground hover:bg-muted/10 h-10 px-2"
-                              style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                            >
-                              ✕
-                            </Button>
-                          </div>
-                        ) : (
-                          <select
-                            value={editedResource.type}
-                            onChange={(e) => {
-                              if (e.target.value === '__add_new__') {
-                                setIsAddingNewType(true);
-                              } else {
-                                setEditedResource({ ...editedResource, type: e.target.value });
-                              }
-                            }}
-                            className="h-10 px-3 bg-input-background border border-border text-foreground w-full"
-                            style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                          >
-                            <option value="">Select Type</option>
-                            {typeOptions.map((option) => (
-                              <option key={option} value={option}>{option}</option>
-                            ))}
-                            <option value="__add_new__" className="text-primary">+ New Type</option>
-                          </select>
-                        )}
-                      </div>
                       )}
                       {viewMode !== 'requests' && (
                       <select
@@ -3784,10 +4112,29 @@ className="text-foreground mb-1"
                           <option value="Requested: RESL Review">Requested: RESL Review</option>
                         </select>
                       )}
+                      {viewMode !== 'requests' && viewMode !== 'all' && (
+                        <div
+                          className="text-card-foreground"
+                          style={{ fontSize: 'var(--text-sm)' }}
+                        >
+                          {renderMissionCapableStatus(
+                            editedResource.id || resource.id,
+                            editedResource.checkInStatus as Resource['checkInStatus'],
+                            editedResource.resource || resource.resource,
+                            editedResource.datetimeOrdered || resource.datetimeOrdered,
+                            editedResource.datetimeOrderedTimezone || resource.datetimeOrderedTimezone,
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     /* View Mode */
-                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
+                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' }}>
+                      {viewMode === 'assigned' && (
+                        <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+                          {resource.id || '-'}
+                        </div>
+                      )}
                       <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
                         {viewMode === 'requests' 
                           ? (resource.resource || '-')
@@ -3796,17 +4143,17 @@ className="text-foreground mb-1"
                       </div>
                       {viewMode === 'requests' && (
                         <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+                          {resource.resourceRequests?.[0]?.incident || resource.incident || '-'}
+                        </div>
+                      )}
+                      {viewMode === 'requests' && (
+                        <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
                           {resource.resourceRequests?.[0]?.requestCreator || '-'}
                         </div>
                       )}
                       {viewMode === 'assigned' && (
                         <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
                           {resource.kind || '-'}
-                        </div>
-                      )}
-                      {viewMode !== 'requests' && (
-                        <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
-                          {resource.type}
                         </div>
                       )}
                       {viewMode !== 'requests' && (
@@ -3851,23 +4198,13 @@ className="text-foreground mb-1"
                       {viewMode === 'requests' && (
                       <div className="text-card-foreground space-y-2" style={{ fontSize: 'var(--text-sm)' }}>
                         {(() => {
-                          // Generate detailed summary of Requested Resources
                           const items = resource.resourceRequests || [];
                           if (items.length === 0) return <div>-</div>;
-                          
-                          // Format: Quantity: [value], Kind: [value], Type: [value], Priority: [value]
-                          // Description: [value] (on its own line)
+
                           return items.map((item, index) => {
-                            const parts = [];
-                            if (item.quantity) parts.push(`Quantity: ${item.quantity}`);
-                            if (item.kind) parts.push(`Kind: ${item.kind}`);
-                            if (item.type) parts.push(`Type: ${item.type}`);
-                            if (item.priority) parts.push(`Priority: ${item.priority}`);
-                            
                             return (
                               <div key={index} className={index > 0 ? 'pt-2 border-t border-white/20' : ''}>
-                                <div>{parts.join(', ')}</div>
-                                {item.description && <div>Description: {item.description}</div>}
+                                {renderRequestedResourceListEntry(item, index, resource.resource)}
                               </div>
                             );
                           });
@@ -3895,6 +4232,20 @@ className="text-foreground mb-1"
                             (resource.id === 'ic-001' || resource.id === '14573') 
                               ? 'Not Requested' 
                               : 'Requested: RESL Review'
+                          )}
+                        </div>
+                      )}
+                      {viewMode !== 'requests' && viewMode !== 'all' && (
+                        <div
+                          className="text-card-foreground"
+                          style={{ fontSize: 'var(--text-sm)' }}
+                        >
+                          {renderMissionCapableStatus(
+                            resource.id,
+                            resource.checkInStatus,
+                            resource.resource,
+                            resource.datetimeOrdered,
+                            resource.datetimeOrderedTimezone,
                           )}
                         </div>
                       )}
@@ -6492,7 +6843,7 @@ className="text-foreground mb-1"
                       {editingResourceId === resource.id ? (
                         /* Edit Mode - Editable Fields */
                         <>
-                          <div className="grid gap-4 gap-y-6" style={{ gridTemplateColumns: viewMode === 'assigned' ? '0.9fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr' : '0.9fr 0.6fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
+                          <div className="grid gap-4 gap-y-6" style={{ gridTemplateColumns: viewMode === 'assigned' ? (resource.id === 'rul-001' ? '1.2fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr' : '0.9fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr') : '0.9fr 0.6fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
                           {/* Assignee - Col 1 (Resource Name) - Only for Incident Commander and Resource Unit Leader */}
                           {(resource.id === 'ic-001' || resource.id === 'rul-001') && (
                             <div style={{ gridColumn: 1 }}>
@@ -6651,14 +7002,14 @@ className="text-foreground mb-1"
                             </select>
                           </div>
 
-                          {/* Owning Unit - Col 7 (Request Status) or Col 5 for non-ic/rul */}
+                          {/* Hull or Tail Number - Col 7 (Request Status) or Col 5 for non-ic/rul */}
                           <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 7 : 5 }}>
-                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Owning Unit</div>
+                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Hull or Tail Number</div>
                             <Input
                               type="text"
-                              placeholder="Enter owning unit"
-                              value={editedResource.owningUnit || ''}
-                              onChange={(e) => setEditedResource({ ...editedResource, owningUnit: e.target.value })}
+                              placeholder="Enter hull or tail number"
+                              value={editedResource.hullOrTailNumber || ''}
+                              onChange={(e) => setEditedResource({ ...editedResource, hullOrTailNumber: e.target.value })}
                               className="bg-input-background border-border text-foreground"
                               style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
                             />
@@ -6677,24 +7028,51 @@ className="text-foreground mb-1"
                           </div>
                           {/* Quantity - Row 2 Col 2 or Col 7 for non-ic/rul */}
                           <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 2 : 7, gridRow: 2 }}>
-                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Quantity</div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Quantity</div>
+                                <Input
+                                  type="number"
+                                  placeholder="Enter quantity"
+                                  value={editedResource.quantity ?? ''}
+                                  onChange={(e) => setEditedResource({ ...editedResource, quantity: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                              <div>
+                                <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Type</div>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter type"
+                                  value={editedResource.type || resource.type || 'Support Unit'}
+                                  onChange={(e) => setEditedResource({ ...editedResource, type: e.target.value })}
+                                  className="bg-input-background border-border text-foreground"
+                                  style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          {/* Operational Control (OPCON) - Row 2 Col 3 or Row 2 Col 1 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 3 : 1, gridRow: 2 }}>
+                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Operational Control (OPCON)</div>
                             <Input
-                              type="number"
-                              placeholder="Enter quantity"
-                              value={editedResource.quantity ?? ''}
-                              onChange={(e) => setEditedResource({ ...editedResource, quantity: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                              type="text"
+                              placeholder="Enter operational control"
+                              value={editedResource.owningUnit || ''}
+                              onChange={(e) => setEditedResource({ ...editedResource, owningUnit: e.target.value })}
                               className="bg-input-background border-border text-foreground"
                               style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
                             />
                           </div>
-                          {/* Hull or Tail Number - Row 2 Col 3 or Row 2 Col 1 for non-ic/rul */}
-                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 3 : 1, gridRow: 2 }}>
-                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Hull or Tail Number</div>
+                          {/* Tactical Control (TACON) - Row 2 Col 4 or Row 2 Col 2 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 4 : 2, gridRow: 2 }}>
+                            <div className="text-foreground mb-1" style={{ fontSize: 'var(--text-xs)' }}>Tactical Control (TACON)</div>
                             <Input
                               type="text"
-                              placeholder="Enter hull or tail number"
-                              value={editedResource.hullOrTailNumber || ''}
-                              onChange={(e) => setEditedResource({ ...editedResource, hullOrTailNumber: e.target.value })}
+                              placeholder="Enter tactical control"
+                              value={editedResource.tacon || ''}
+                              onChange={(e) => setEditedResource({ ...editedResource, tacon: e.target.value })}
                               className="bg-input-background border-border text-foreground"
                               style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
                             />
@@ -7011,23 +7389,42 @@ className="text-foreground mb-1"
                                   >
                                     {resource.checkInStatus === 'checked-in' ? 'Checked-In' : resource.checkInStatus === 'not-checked-in' ? 'Demobilized' : 'Not Arrived'}
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-border text-foreground hover:bg-muted/10"
-                                    style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                                    onClick={() => {
-                                      if (resource.checkInStatus === 'checked-in') {
+                                  {resource.checkInStatus === 'checked-in' && submittedDemobilizationResourceIds.has(resource.id) ? (
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md font-medium bg-slate-900/70 text-slate-200 border border-slate-600 hover:bg-slate-800/80"
+                                      style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                      onClick={() => {
+                                        setActiveDemobilizationResourceId(resource.id);
                                         setIcs221ModalOpen(true);
-                                      } else {
-                                        setResources(resources.map(r =>
-                                          r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
-                                        ));
-                                      }
-                                    }}
-                                  >
-                                    {resource.checkInStatus === 'checked-in' ? 'Demobilize' : 'Check-In'}
-                                  </Button>
+                                      }}
+                                    >
+                                      <span>Demobilization Request Submitted</span>
+                                      <ExternalLink className="h-3 w-3 text-slate-300" />
+                                    </button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-border text-foreground hover:bg-muted/10"
+                                      style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                      onClick={() => {
+                                        if (resource.checkInStatus === 'checked-in') {
+                                          setActiveDemobilizationResourceId(resource.id);
+                                          setIcs221ModalOpen(true);
+                                        } else {
+                                          setResources((prev) =>
+                                            prev.map((r) =>
+                                              r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
+                                            )
+                                          );
+                                          setIcs211CheckInModalOpen(true);
+                                        }
+                                      }}
+                                    >
+                                      {resource.checkInStatus === 'checked-in' ? 'Demobilize' : 'Check-In'}
+                                    </Button>
+                                  )}
                                   </div>
                                 </div>
                               )}
@@ -7037,7 +7434,7 @@ className="text-foreground mb-1"
                       ) : (
                         /* View Mode - Display Only */
                         <>
-                          <div className="grid gap-4 gap-y-6" style={{ gridTemplateColumns: viewMode === 'assigned' ? '0.9fr 1fr 1fr 1fr 1fr 0.8fr 0.8fr' : '0.9fr 0.6fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
+                          <div className="grid gap-4 gap-y-6" style={{ gridTemplateColumns: viewMode === 'assigned' ? '0.9fr 1fr 0.8fr 1fr 1fr 1fr 0.8fr 0.8fr' : '0.9fr 0.6fr 1fr 1fr 1fr 0.8fr 0.8fr' }}>
                           {/* Assignee - Col 1 (Resource Name) - Only for Incident Commander and Resource Unit Leader */}
                           {(resource.id === 'ic-001' || resource.id === 'rul-001') && (
                             <div style={{ display: 'contents' }}>
@@ -7048,12 +7445,10 @@ className="text-foreground mb-1"
                                       <span className="text-foreground" style={{ fontSize: 'var(--text-xs)', minWidth: '130px' }}>Assignee</span>
                                       <span className="text-foreground" style={{ fontSize: 'var(--text-xs)', minWidth: '95px' }}>Activation Status</span>
                                       <span className="text-foreground" style={{ fontSize: 'var(--text-xs)', minWidth: '95px' }}>Check-In Status</span>
-                                      <span className="text-foreground" style={{ fontSize: 'var(--text-xs)' }}>Sign-In Status</span>
+                                      <span className="text-foreground" style={{ fontSize: 'var(--text-xs)', minWidth: '95px', whiteSpace: 'nowrap' }}>Sign-In Status</span>
                                     </div>
                                     {[
                                       { name: 'CAPT John Smith', activationStatus: 'Activated', checkInStatus: 'Checked-In', signInStatus: 'Signed In' },
-                                      { name: 'LT Sarah Johnson', activationStatus: 'Activated', checkInStatus: 'Checked-In', signInStatus: 'Signed In' },
-                                      { name: 'CDR Michael Brown', activationStatus: 'Deactivated', checkInStatus: 'Demobilized', signInStatus: 'Signed Out' },
                                     ].map((a, i) => (
                                       <div key={i} className="flex gap-4 text-card-foreground mb-1">
                                         <span style={{ minWidth: '130px' }}>{a.name}</span>
@@ -7063,7 +7458,7 @@ className="text-foreground mb-1"
                                         <span style={{ minWidth: '95px', color: a.checkInStatus === 'Checked-In' ? 'var(--status-success)' : 'var(--status-error, #ef4444)' }}>
                                           {a.checkInStatus}
                                         </span>
-                                        <span style={{ color: a.signInStatus === 'Signed In' ? 'var(--status-success)' : 'var(--status-error, #ef4444)' }}>
+                                        <span style={{ minWidth: '95px', whiteSpace: 'nowrap', color: a.signInStatus === 'Signed In' ? 'var(--status-success)' : 'var(--status-error, #ef4444)' }}>
                                           {a.signInStatus}
                                         </span>
                                       </div>
@@ -7113,8 +7508,24 @@ className="text-foreground mb-1"
                             </div>
                           </div>
 
-                          {/* Datetime Ordered - Col 4 (AOR) or Col 2 for non-ic/rul */}
+                          {/* Symbology - Col 4 or Col 2 for non-ic/rul */}
                           <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 4 : 2 }}>
+                            <div
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              Symbology
+                            </div>
+                            <div
+                              className="text-card-foreground flex items-center"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              {getSymbologyIcon(resource)}
+                            </div>
+                          </div>
+
+                          {/* Datetime Ordered - Col 5 (AOR) or Col 3 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 5 : 3 }}>
                             <div 
 className="text-foreground mb-1"
                               style={{ fontSize: 'var(--text-sm)' }}
@@ -7139,8 +7550,8 @@ className="text-foreground mb-1"
                             </div>
                           </div>
 
-                          {/* Point of Contact - Col 5 (Incident) or Col 3 for non-ic/rul */}
-                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 5 : 3 }}>
+                          {/* Point of Contact - Col 6 (Incident) or Col 4 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 6 : 4 }}>
                             <div 
 className="text-foreground mb-1"
                               style={{ fontSize: 'var(--text-sm)' }}
@@ -7158,8 +7569,8 @@ className="text-foreground mb-1"
                             </div>
                           </div>
 
-                          {/* Owner - Col 6 (Current Work Availability) or Col 4 for non-ic/rul */}
-                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 6 : 4 }}>
+                          {/* Owner - Col 7 (Current Work Availability) or Col 5 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 7 : 5 }}>
                             <div 
 className="text-foreground mb-1"
                               style={{ fontSize: 'var(--text-sm)' }}
@@ -7174,19 +7585,19 @@ className="text-foreground mb-1"
                             </div>
                           </div>
 
-                          {/* Owning Unit - Col 7 (Request Status) or Col 5 for non-ic/rul */}
-                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 7 : 5 }}>
+                          {/* Hull or Tail Number - Col 8 (Request Status) or Col 6 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 8 : 6 }}>
                             <div 
 className="text-foreground mb-1"
                               style={{ fontSize: 'var(--text-sm)' }}
                             >
-                              Owning Unit
+                              Hull or Tail Number
                             </div>
                             <div 
                               className="text-card-foreground" 
                               style={{ fontSize: 'var(--text-sm)' }}
                             >
-                              {resource.owningUnit || '-'}
+                              {resource.hullOrTailNumber || '-'}
                             </div>
                           </div>
 
@@ -7208,33 +7619,66 @@ className="text-foreground mb-1"
 
                           {/* Quantity - Row 2 Col 2 or Col 7 for non-ic/rul */}
                           <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 2 : 7, gridRow: 2 }}>
-                            <div 
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <div 
 className="text-foreground mb-1"
-                              style={{ fontSize: 'var(--text-sm)' }}
-                            >
-                              Quantity
-                            </div>
-                            <div 
-                              className="text-card-foreground" 
-                              style={{ fontSize: 'var(--text-sm)' }}
-                            >
-                              {resource.quantity ?? '-'}
+                                  style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  Quantity
+                                </div>
+                                <div 
+                                  className="text-card-foreground" 
+                                  style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  {resource.quantity ?? '-'}
+                                </div>
+                              </div>
+                              <div>
+                                <div 
+className="text-foreground mb-1"
+                                  style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  Type
+                                </div>
+                                <div 
+                                  className="text-card-foreground" 
+                                  style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                  {resource.type || 'Support Unit'}
+                                </div>
+                              </div>
                             </div>
                           </div>
 
-                          {/* Hull or Tail Number - Row 2 Col 3 or Row 2 Col 1 for non-ic/rul */}
+                          {/* Operational Control (OPCON) - Row 2 Col 3 or Row 2 Col 1 for non-ic/rul */}
                           <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 3 : 1, gridRow: 2 }}>
                             <div 
 className="text-foreground mb-1"
                               style={{ fontSize: 'var(--text-sm)' }}
                             >
-                              Hull or Tail Number
+                              Operational Control (OPCON)
                             </div>
                             <div 
                               className="text-card-foreground" 
                               style={{ fontSize: 'var(--text-sm)' }}
                             >
-                              {resource.hullOrTailNumber || '-'}
+                              {resource.owningUnit || '-'}
+                            </div>
+                          </div>
+                          {/* Tactical Control (TACON) - Row 2 Col 4 or Row 2 Col 2 for non-ic/rul */}
+                          <div style={{ gridColumn: (resource.id === 'ic-001' || resource.id === 'rul-001') ? 4 : 2, gridRow: 2 }}>
+                            <div
+className="text-foreground mb-1"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              Tactical Control (TACON)
+                            </div>
+                            <div
+                              className="text-card-foreground"
+                              style={{ fontSize: 'var(--text-sm)' }}
+                            >
+                              {resource.tacon || '-'}
                             </div>
                           </div>
                           </div>
@@ -7399,23 +7843,42 @@ className="text-foreground mb-1"
                                       ? 'Demobilized'
                                       : 'Not Arrived'}
                                   </span>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-border text-foreground hover:bg-muted/10"
-                                    style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
-                                    onClick={() => {
-                                      if (resource.checkInStatus === 'checked-in') {
+                                  {resource.checkInStatus === 'checked-in' && submittedDemobilizationResourceIds.has(resource.id) ? (
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md font-medium bg-slate-900/70 text-slate-200 border border-slate-600 hover:bg-slate-800/80"
+                                      style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                      onClick={() => {
+                                        setActiveDemobilizationResourceId(resource.id);
                                         setIcs221ModalOpen(true);
-                                      } else {
-                                        setResources(resources.map(r =>
-                                          r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
-                                        ));
-                                      }
-                                    }}
-                                  >
-                                    {resource.checkInStatus === 'checked-in' ? 'Demobilize' : 'Check-In'}
-                                  </Button>
+                                      }}
+                                    >
+                                      <span>Demobilization Request Submitted</span>
+                                      <ExternalLink className="h-3 w-3 text-slate-300" />
+                                    </button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-border text-foreground hover:bg-muted/10"
+                                      style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+                                      onClick={() => {
+                                        if (resource.checkInStatus === 'checked-in') {
+                                          setActiveDemobilizationResourceId(resource.id);
+                                          setIcs221ModalOpen(true);
+                                        } else {
+                                          setResources((prev) =>
+                                            prev.map((r) =>
+                                              r.id === resource.id ? { ...r, checkInStatus: 'checked-in' } : r
+                                            )
+                                          );
+                                          setIcs211CheckInModalOpen(true);
+                                        }
+                                      }}
+                                    >
+                                      {resource.checkInStatus === 'checked-in' ? 'Demobilize' : 'Check-In'}
+                                    </Button>
+                                  )}
                                   </div>
                                 </div>
                               )}
@@ -7506,6 +7969,16 @@ className="text-foreground mb-1"
             <Button
               className="bg-primary text-primary-foreground hover:bg-primary/90"
               style={{ borderRadius: 'var(--radius)', fontSize: 'var(--text-sm)' }}
+              onClick={() => {
+                if (activeDemobilizationResourceId) {
+                  setSubmittedDemobilizationResourceIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(activeDemobilizationResourceId);
+                    return next;
+                  });
+                }
+                setIcs221ModalOpen(false);
+              }}
             >
               Submit Demobilization Request
             </Button>
@@ -7518,6 +7991,20 @@ className="text-foreground mb-1"
               Cancel
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ICS 211 Check-In Placeholder Modal */}
+      <Dialog open={ics211CheckInModalOpen} onOpenChange={setIcs211CheckInModalOpen}>
+        <DialogContent className="bg-card border-border max-w-2xl" style={{ borderRadius: 'var(--radius)' }}>
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground" style={{ fontSize: 'var(--text-lg)' }}>
+              ICS 211 Check-In
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+              ICS 211 check-in drawer renders now
+            </DialogDescription>
+          </DialogHeader>
         </DialogContent>
       </Dialog>
 
@@ -7588,6 +8075,25 @@ className="text-foreground mb-1"
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Requested Resource Popout Modal */}
+      <Dialog open={selectedRequestedResource !== null} onOpenChange={(open) => !open && setSelectedRequestedResource(null)}>
+        <DialogContent className="bg-card border-border w-[9rem] max-w-[9rem]" style={{ borderRadius: 'var(--radius)' }}>
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground" style={{ fontSize: 'var(--text-lg)' }}>
+              Placeholder modal for resource list item
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+              Placeholder modal for resource list item
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequestedResource && (
+            <div className="py-2 text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+              placeholder modal for resource list item
             </div>
           )}
         </DialogContent>

@@ -39,6 +39,8 @@ export function ApprovalProgressSection({
   }
 
   const firstRequest = resource.resourceRequests[0];
+  const showOpconExtendedFlow =
+    resource.resource === 'Helicopter Request' || resource.resource === 'Requesting Cutter';
 
   return (
     <div className="pb-4 mb-4 border-b border-border">
@@ -599,6 +601,94 @@ export function ApprovalProgressSection({
             )}
           </div>
         </div>
+
+        {showOpconExtendedFlow && (
+          <>
+            {/* Connector Line */}
+            <div className="flex-1 pt-4">
+              <div 
+                className={`h-0.5 ${
+                  firstRequest.approvalSteps.finance.status === 'completed'
+                    ? 'bg-status-success'
+                    : 'bg-border'
+                }`}
+              />
+            </div>
+
+            {/* Step 6: OPCON Units */}
+            <div className="flex-1">
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                    firstRequest.approvalSteps.finance.status === 'completed'
+                      ? 'bg-status-success border-status-success'
+                      : firstRequest.approvalSteps.finance.status === 'rejected'
+                      ? 'bg-status-error border-status-error'
+                      : 'bg-card border-border'
+                  }`}
+                >
+                  {firstRequest.approvalSteps.finance.status === 'completed' ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <span className="text-muted-foreground" style={{ fontSize: 'var(--text-xs)' }}>
+                      6
+                    </span>
+                  )}
+                </div>
+                <div 
+                  className="text-center text-card-foreground" 
+                  style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}
+                >
+                  OPCON Units
+                </div>
+              </div>
+            </div>
+
+            {/* Connector Line */}
+            <div className="flex-1 pt-4">
+              <div 
+                className={`h-0.5 ${
+                  firstRequest.approvalSteps.finance.status === 'completed'
+                    ? 'bg-status-success'
+                    : 'bg-border'
+                }`}
+              />
+            </div>
+
+            {/* Step 7: Finance */}
+            <div className="flex-1">
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                    firstRequest.approvalSteps.finance.status === 'completed'
+                      ? 'bg-status-success border-status-success'
+                      : firstRequest.approvalSteps.finance.status === 'rejected'
+                      ? 'bg-status-error border-status-error'
+                      : 'bg-card border-border'
+                  }`}
+                >
+                  {firstRequest.approvalSteps.finance.status === 'completed' ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <span className="text-muted-foreground" style={{ fontSize: 'var(--text-xs)' }}>
+                      7
+                    </span>
+                  )}
+                </div>
+                <div 
+                  className="text-center text-card-foreground" 
+                  style={{ fontSize: 'var(--text-xs)', maxWidth: '100px' }}
+                >
+                  Finance
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
