@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Trash2, Pencil, Map, ChevronDown, ChevronRight, Search, X, Filter, FileText, Sparkles, ExternalLink, Plane, Ship, Users, Wrench } from 'lucide-react';
+import { Trash2, Pencil, Map, ChevronDown, ChevronRight, Search, X, Filter, FileText, Sparkles, ExternalLink, Plane, Ship, Users, Wrench, Box } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -1478,9 +1478,9 @@ export function IncidentResources() {
           title={shouldShowMultiIncidentIndicator(requestName, index) ? 'This resource has been requested by multiple Incidents.' : undefined}
         >
           {shouldShowMultiIncidentIndicator(requestName, index) && (
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-              style={{ backgroundColor: '#facc15', border: '1px solid #facc15' }}
+            <Box
+              className="shrink-0"
+              style={{ width: '11px', height: '11px', color: '#facc15' }}
               title="This resource has been requested by multiple Incidents."
               aria-label="This resource has been requested by multiple Incidents."
             />
@@ -2544,9 +2544,9 @@ export function IncidentResources() {
           <div className="w-8"></div>
           
           {/* Column Headers with Filters */}
-          <div className="flex-1 grid gap-4 justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' }}>
+          <div className="flex-1 grid gap-4 justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.5fr) minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' }}>
             {/* ID Filter - Only for resources view */}
-            {viewMode === 'assigned' && (
+            {(viewMode === 'assigned' || viewMode === 'requests') && (
             <div className="flex flex-col gap-2">
               <div className="text-foreground" style={{ fontSize: 'var(--text-sm)' }}>
                 ID
@@ -3828,11 +3828,14 @@ className="text-foreground mb-1"
 
                   {editingResourceId === resource.id ? (
                     /* Edit Mode */
-                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : viewMode === 'assigned' ? 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' : 'minmax(0, 0.9fr) minmax(0, 0.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
+                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.5fr) minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : viewMode === 'assigned' ? 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' : 'minmax(0, 0.9fr) minmax(0, 0.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr)' }}>
                       {/* Check if this is a new resource request (add state) */}
                       {viewMode === 'requests' && resource.id.startsWith('req-new-') ? (
                         /* Add State - Show Request Name Input */
                         <>
+                          <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
+                            {resource.id || '-'}
+                          </div>
                           <Input
                             type="text"
                             placeholder="Enter request name"
@@ -3901,6 +3904,11 @@ className="text-foreground mb-1"
                       ) : (
                         /* Edit State - Show Original Fields */
                         <>
+                      {viewMode === 'requests' && (
+                      <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
+                        {editedResource.id || resource.id || '-'}
+                      </div>
+                      )}
                       {viewMode === 'assigned' && (
                       <div className="text-card-foreground flex items-center" style={{ fontSize: 'var(--text-sm)' }}>
                         {editedResource.id || resource.id || '-'}
@@ -4129,8 +4137,13 @@ className="text-foreground mb-1"
                     </div>
                   ) : (
                     /* View Mode */
-                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' }}>
+                    <div className="flex-1 grid gap-4 items-center justify-items-start min-w-0" style={{ gridTemplateColumns: viewMode === 'requests' ? 'minmax(0, 0.5fr) minmax(0, 0.63fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.42fr) minmax(0, 2fr)' : 'minmax(0, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr)' }}>
                       {viewMode === 'assigned' && (
+                        <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
+                          {resource.id || '-'}
+                        </div>
+                      )}
+                      {viewMode === 'requests' && (
                         <div className="text-card-foreground" style={{ fontSize: 'var(--text-sm)' }}>
                           {resource.id || '-'}
                         </div>
